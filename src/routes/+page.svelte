@@ -1,3 +1,8 @@
+<svelte:head>
+    <title>Oleg Polin</title>
+    <meta name="description" content="Oleg Polin - A web developer. A cloud engineer. A photographer" />
+</svelte:head>
+
 <script>
     import PortfolioItemSmall from "$lib/components/PortfolioItemSmall.svelte";
     import SkillItem from "$lib/components/SkillItem.svelte";

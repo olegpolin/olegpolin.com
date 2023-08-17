@@ -1,3 +1,8 @@
+<svelte:head>
+    <title>Portfolio - Oleg Polin</title>
+    <meta name="description" content="Oleg Polin's Portfolio" />
+</svelte:head>
+
 <script>
     import PortfolioItem from "$lib/components/PortfolioItem.svelte";
 </script>

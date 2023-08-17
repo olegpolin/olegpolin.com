@@ -1,4 +1,7 @@
-
+<svelte:head>
+    <title>About Oleg Polin</title>
+    <meta name="description" content="About Oleg Polin" />
+</svelte:head>
 
 <h1 class="pt-16 px-8 pb-8 text-4xl text-center">About me:</h1>
 <p class="px-8 pb-8 text-xl text-center">I am a passionate web developer, making everything from static portfolio sites to full-stack web applications.</p>
