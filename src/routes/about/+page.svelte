@@ -12,5 +12,5 @@
 <p id="contact" class="p-8 text-4xl text-center">Contact me:</p>
 <div class="flex flex-row justify-center gap-4 mb-64">
     <!--<a href="#"><button class="btn btn-primary">Twitter DM</button></a>-->
-    <a href="/about"><button class="btn btn-primary">Email</button></a>
+    <a href="mailto:hello@olegpolin.com"><button class="btn btn-primary">Email</button></a>
 </div>
