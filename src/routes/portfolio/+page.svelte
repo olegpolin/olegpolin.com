@@ -25,4 +25,16 @@
         link = "https://ocelly.com"
         icon = "ocelly"
     />
+    <PortfolioItem 
+        title = "PlonAI"
+        description = "A customized version of the Hugging Face Chat UI"
+        link = "https://plonai.com"
+        icon = "plonai"
+    />
+    <PortfolioItem 
+        title = "Bilangify"
+        description = "A language learning platform for immigrants"
+        link = "https://bilangify.com"
+        icon = "bilangify"
+    />
 </div>
