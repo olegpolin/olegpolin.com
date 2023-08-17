@@ -1,6 +1,6 @@
 <svelte:head>
     <title>Oleg Polin</title>
-    <meta name="description" content="Oleg Polin - A web developer. A cloud engineer. A photographer" />
+    <meta name="description" content="Oleg Polin - Web Developer. Cloud Engineer. Photographer." />
 </svelte:head>
 
 <script>
