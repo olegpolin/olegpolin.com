@@ -10,7 +10,7 @@
 
 <div class="flex flex-col items-center gap-16 w-full border rounded-lg px-4 py-12">
     <h3 class="text-2xl text-center font-semibold">Programming languages:</h3>
-    <div class="grid grid-cols-3 gap-16">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-8 md:gap-16">
         <ExpCard name="TypeScript" icon={ts} />
         <ExpCard name="HTML" icon={html} />
         <ExpCard name="CSS" icon={css} />

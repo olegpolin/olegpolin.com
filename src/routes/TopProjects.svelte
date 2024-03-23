@@ -6,7 +6,7 @@
     import SquareArrow from "lucide-svelte/icons/square-arrow-out-up-right";
 </script>
 
-<div class="flex gap-12">
+<div class="flex flex-col md:flex-row gap-6 md:gap-12">
     <Card.Root class="w-64 flex flex-col items-center">
         <Card.Header>
             <div class="flex gap-2 items-center">

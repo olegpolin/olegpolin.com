@@ -9,7 +9,7 @@
 
 <div class="flex flex-col items-center gap-16 w-full border rounded-lg px-4 py-12">
     <h3 class="text-2xl text-center font-semibold">Frameworks and platforms:</h3>
-    <div class="grid grid-cols-3 gap-16">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-8 md:gap-16">
         <ExpCard name="Svelte" icon={svelte} />
         <ExpCard name="SvelteKit" icon={svelte} />
         <ExpCard name="Tailwind" icon={tailwind} />
