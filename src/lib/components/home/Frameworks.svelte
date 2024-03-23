@@ -1,5 +1,5 @@
 <script lang="ts">
-    import ExpCard from "./ExpCard.svelte";
+    import ExpCard from "$lib/components/home/ExpCard.svelte";
     import svelte from "$lib/assets/frameworks/svelte.svg";
     import tailwind from "$lib/assets/frameworks/tailwind.svg";
     import supabase from "$lib/assets/frameworks/supabase.svg";

@@ -1,8 +1,9 @@
 <script lang="ts">
     import { Button } from "$lib/components/ui/button";
-    import TopProjects from "./TopProjects.svelte";
-    import Frameworks from "./Frameworks.svelte";
-    import Languages from "./Languages.svelte";
+    import { Separator } from "$lib/components/ui/separator";
+    import TopProjects from "$lib/components/home/TopProjects.svelte";
+    import Frameworks from "$lib/components/home/Frameworks.svelte";
+    import Languages from "$lib/components/home/Languages.svelte";
 
     let phrases = ["Web Development", "AI Applications", "Cloud Engineering"];
     let phrase = "";
@@ -54,6 +55,7 @@
     <p class="text-lg text-center">I prioritize speed, accessibility, and user experience.</p>
     <div class="w-full">
         <Frameworks />
+        <Separator class="mx-auto h-16" orientation="vertical" />
         <Languages />
     </div>
 </div>

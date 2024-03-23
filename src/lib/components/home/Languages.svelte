@@ -1,5 +1,5 @@
 <script lang="ts">
-    import ExpCard from "./ExpCard.svelte";
+    import ExpCard from "$lib/components/home/ExpCard.svelte";
     import ts from "$lib/assets/languages/ts.svg";
     import html from "$lib/assets/languages/html.svg";
     import css from "$lib/assets/languages/css.svg";
