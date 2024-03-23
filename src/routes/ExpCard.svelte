@@ -9,7 +9,7 @@
     <Card.Content class="pt-6">
         <img class="h-16" src={icon} alt={name}/>
     </Card.Content>
-    <Card.Footer>
+    <Card.Footer class="text-center">
         {name}
     </Card.Footer>
 </Card.Root>

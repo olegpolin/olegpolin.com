@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Button } from "$lib/components/ui/button";
     import TopProjects from "./TopProjects.svelte";
+    import Frameworks from "./Frameworks.svelte";
     import Languages from "./Languages.svelte";
 
     let phrases = ["Web Development", "AI Applications", "Cloud Engineering"];
@@ -44,14 +45,15 @@
         {/if}
     </h2>
     <p class="text-lg text-center mb-6">I turn ideas into code. I am a passionate full-stack web developer who creates stunning and functional websites and web applications. My goal is to make the web a better place by crafting user-friendly and innovative digital experiences.</p>
-    <h3 class="text-2xl text-center font-semibold">Some of the projects I've been working on:</h3>
-    <TopProjects />
-    <Button href="/portfolio">View Full Portfolio</Button>
-    <div class="flex flex-col gap-2">
-        <h3 class="text-2xl text-center font-semibold mt-6">Pixel-perfect frontend, precision-driven backend, agile full-stack.</h3>
-        <p class="text-lg text-center">I prioritize speed, accessibility, and user experience.</p>
-        <h3 class="text-2xl text-center font-semibold">Frameworks:</h3>
+    <div class="flex flex-col items-center gap-6 border rounded-lg w-full p-6">
+        <h3 class="text-2xl text-center font-semibold">Projects I've worked on:</h3>
+        <TopProjects />
+        <Button href="/portfolio">View Full Portfolio</Button>
     </div>
-    <h3 class="text-2xl text-center font-semibold mt-6">Programming languages:</h3>
-    <Languages />
+    <h3 class="text-2xl text-center font-semibold mt-6">Pixel-perfect frontend, precision-driven backend, agile full-stack.</h3>
+    <p class="text-lg text-center">I prioritize speed, accessibility, and user experience.</p>
+    <div class="w-full">
+        <Frameworks />
+        <Languages />
+    </div>
 </div>
