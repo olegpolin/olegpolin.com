@@ -1,11 +1,7 @@
 <script lang="ts">
-    import LangCard from "./LangCard.svelte";
-    import ts from "$lib/assets/languages/ts.svg";
-    import html from "$lib/assets/languages/html.svg";
-    import css from "$lib/assets/languages/css.svg";
-    import js from "$lib/assets/languages/js.svg";
-    import py from "$lib/assets/languages/py.svg";
-    import java from "$lib/assets/languages/java.svg";
+    import { Button } from "$lib/components/ui/button";
+    import TopProjects from "./TopProjects.svelte";
+    import Languages from "./Languages.svelte";
 
     let phrases = ["Web Development", "AI Applications", "Cloud Engineering"];
     let phrase = "";
@@ -39,21 +35,23 @@
     typing();
 </script>
 
-<div class="mx-4 md:mx-16 my-16 flex flex-col items-center">
-    <h2 class="text-3xl text-center font-semibold border-r-2 border-white w-fit mb-32">
+<div class="mx-auto px-4 md:max-w-[48rem] my-16 flex flex-col items-center gap-6">
+    <h2 class="text-3xl text-center font-semibold border-r-2 border-white w-fit mb-12">
         {#if phrase.length == 0}
             &nbsp;
         {:else}
             {phrase}
         {/if}
     </h2>
-    <h3 class="text-2xl text-center font-semibold mb-16">Programming languages:</h3>
-    <div class="grid grid-cols-3 gap-16">
-        <LangCard language="TypeScript" icon={ts} />
-        <LangCard language="HTML" icon={html} />
-        <LangCard language="CSS" icon={css} />
-        <LangCard language="JavaScript" icon={js} />
-        <LangCard language="Python" icon={py} />
-        <LangCard language="Java" icon={java} />
+    <p class="text-lg text-center mb-6">I turn ideas into code. I am a passionate full-stack web developer who creates stunning and functional websites and web applications. My goal is to make the web a better place by crafting user-friendly and innovative digital experiences.</p>
+    <h3 class="text-2xl text-center font-semibold">Some of the projects I've been working on:</h3>
+    <TopProjects />
+    <Button href="/portfolio">View Full Portfolio</Button>
+    <div class="flex flex-col gap-2">
+        <h3 class="text-2xl text-center font-semibold mt-6">Pixel-perfect frontend, precision-driven backend, agile full-stack.</h3>
+        <p class="text-lg text-center">I prioritize speed, accessibility, and user experience.</p>
+        <h3 class="text-2xl text-center font-semibold">Frameworks:</h3>
     </div>
+    <h3 class="text-2xl text-center font-semibold mt-6">Programming languages:</h3>
+    <Languages />
 </div>
