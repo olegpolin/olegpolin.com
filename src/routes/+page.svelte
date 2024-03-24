@@ -1,3 +1,8 @@
+<svelte:head>
+	<title>Oleg Polin</title>
+	<meta name="description" content="Oleg Polin - Web Development, Cloud Engineering, AI Applications" />
+</svelte:head>
+
 <script lang="ts">
     import { Button } from "$lib/components/ui/button";
     import { Separator } from "$lib/components/ui/separator";
