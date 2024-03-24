@@ -25,7 +25,7 @@
     <div class="md:basis-1/4">
         <div class="md:hidden">
             <Sheet.Root>
-                <Sheet.Trigger>
+                <Sheet.Trigger aria-label="Menu">
                     <Menu />
                 </Sheet.Trigger>
                 <Sheet.Content>
