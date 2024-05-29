@@ -12,8 +12,6 @@
     import gubbusScreenshot from "$lib/assets/portfolio/gubbus-screenshot.webp";
     import ocelly from "$lib/assets/projects/ocelly.webp";
     import ocellyScreenshot from "$lib/assets/portfolio/ocelly-screenshot.webp";
-    import plonai from "$lib/assets/projects/plonai.webp";
-    import plonaiScreenshot from "$lib/assets/portfolio/plonai-screenshot.webp";
     import craftedCologne from "$lib/assets/projects/crafted-cologne.webp";
     import craftedCologneScreenshot from "$lib/assets/portfolio/crafted-cologne-screenshot.webp";
     import bilangify from "$lib/assets/projects/bilangify.webp";
@@ -42,13 +40,6 @@
         description="Everything tech. Tutorials, news, deals, and more." 
         link="https://ocelly.com" 
         screenshot={ocellyScreenshot} 
-    />
-    <PortfolioItem 
-        name="PlonAI" 
-        icon={plonai} 
-        description="A customized version of the Hugging Face Chat UI." 
-        link="https://plonai.com" 
-        screenshot={plonaiScreenshot} 
     />
     <PortfolioItem 
         name="Crafted Cologne" 
