@@ -3,11 +3,21 @@
     import * as Card from "$lib/components/ui/card";
     import SquareArrow from "lucide-svelte/icons/square-arrow-out-up-right";
 
-    export let name: string;
-    export let icon: string;
-    export let description: string;
-    export let link: string;
-    export let screenshot: string;
+    interface Props {
+        name: string;
+        icon: string;
+        description: string;
+        link: string;
+        screenshot: string;
+    }
+
+    let {
+        name,
+        icon,
+        description,
+        link,
+        screenshot
+    }: Props = $props();
 </script>
 
 <Card.Root class="flex flex-col md:flex-row items-center gap-16 p-6 md:p-16">

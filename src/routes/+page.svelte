@@ -11,7 +11,7 @@
     import Languages from "$lib/components/home/Languages.svelte";
 
     let phrases = ["Web Development", "AI Applications", "Cloud Engineering"];
-    let phrase = "";
+    let phrase = $state("");
     let currentPhrase = 0;
     let currentChar = 0;
     let forward = true;

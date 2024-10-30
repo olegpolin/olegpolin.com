@@ -32,19 +32,25 @@
                     <nav class="h-full">
                         <ul class="flex flex-col h-full justify-center items-center gap-8">
                             <li class="w-full">
-                                <Sheet.Close asChild let:builder>
-                                    <Button builders={[builder]} class="text-lg w-full" variant="ghost" href="/">Home</Button>
-                                </Sheet.Close>
+                                <Sheet.Close asChild >
+                                    {#snippet children({ builder })}
+                                                                        <Button builders={[builder]} class="text-lg w-full" variant="ghost" href="/">Home</Button>
+                                                                                                        {/snippet}
+                                                                </Sheet.Close>
                             </li>
                             <li class="w-full">
-                                <Sheet.Close asChild let:builder>
-                                    <Button builders={[builder]} class="text-lg w-full" variant="ghost" href="/portfolio">Portfolio</Button>
-                                </Sheet.Close>
+                                <Sheet.Close asChild >
+                                    {#snippet children({ builder })}
+                                                                        <Button builders={[builder]} class="text-lg w-full" variant="ghost" href="/portfolio">Portfolio</Button>
+                                                                                                        {/snippet}
+                                                                </Sheet.Close>
                             </li>
                             <li class="w-full">
-                                <Sheet.Close asChild let:builder>
-                                    <Button builders={[builder]} class="text-lg w-full" variant="ghost" href="/about">About</Button>
-                                </Sheet.Close>
+                                <Sheet.Close asChild >
+                                    {#snippet children({ builder })}
+                                                                        <Button builders={[builder]} class="text-lg w-full" variant="ghost" href="/about">About</Button>
+                                                                                                        {/snippet}
+                                                                </Sheet.Close>
                             </li>
                         </ul>
                     </nav>

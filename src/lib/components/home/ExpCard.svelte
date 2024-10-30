@@ -1,8 +1,12 @@
 <script lang="ts">
     import * as Card from "$lib/components/ui/card";
 
-    export let name: string;
-    export let icon: string;
+    interface Props {
+        name: string;
+        icon: string;
+    }
+
+    let { name, icon }: Props = $props();
 </script>
 
 <Card.Root class="w-32 flex flex-col items-center">
