@@ -12,10 +12,10 @@
     import gubbusScreenshot from "$lib/assets/portfolio/gubbus-screenshot.webp";
     import ocelly from "$lib/assets/projects/ocelly.webp";
     import ocellyScreenshot from "$lib/assets/portfolio/ocelly-screenshot.webp";
-    import craftedCologne from "$lib/assets/projects/crafted-cologne.webp";
-    import craftedCologneScreenshot from "$lib/assets/portfolio/crafted-cologne-screenshot.webp";
-    import bilangify from "$lib/assets/projects/bilangify.webp";
-    import bilangifyScreenshot from "$lib/assets/portfolio/bilangify-screenshot.webp";
+    import afind from "$lib/assets/projects/afind.webp";
+    import afindScreenshot from "$lib/assets/portfolio/afind-screenshot.webp";
+    import superai from "$lib/assets/projects/superai.webp";
+    import superaiScreenshot from "$lib/assets/portfolio/superai-screenshot.webp";
 </script>
 
 <div class="mx-auto px-4 md:max-w-[48rem] my-16 flex flex-col items-center gap-16">
@@ -42,17 +42,17 @@
         screenshot={ocellyScreenshot} 
     />
     <PortfolioItem 
-        name="Crafted Cologne" 
-        icon={craftedCologne} 
-        description="Carefully crafted cologne." 
-        link="https://craftedcologne.com" 
-        screenshot={craftedCologneScreenshot} 
+        name="Afind" 
+        icon={afind} 
+        description="A landing page for an AI startup." 
+        link="https://afind.ai" 
+        screenshot={afindScreenshot} 
     />
     <PortfolioItem 
-        name="Bilangify" 
-        icon={bilangify} 
-        description="A language learning platform for immigrants." 
-        link="https://bilangify.com" 
-        screenshot={bilangifyScreenshot} 
+        name="SuperAI" 
+        icon={superai} 
+        description="A hackathon project - an AI aggregator." 
+        link="https://superai.pages.dev" 
+        screenshot={superaiScreenshot} 
     />
 </div>
