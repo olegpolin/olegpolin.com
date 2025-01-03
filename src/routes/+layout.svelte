@@ -2,15 +2,16 @@
     import "../app.css";
     import Header from "./Header.svelte";
     import Footer from "./Footer.svelte";
-    interface Props {
-        children?: import('svelte').Snippet;
-    }
 
-    let { children }: Props = $props();
+    let { children } = $props();
 </script>
 
-<Header />
+<div class="flex flex-col min-h-screen">
+    <Header />
 
-{@render children?.()}
+    <main class="grow">
+        {@render children()}
+    </main>
 
-<Footer />
+    <Footer />
+</div>
