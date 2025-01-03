@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { page } from '$app/stores';
+    import { page } from "$app/state";
 </script>
 
-<h1 class="text-3xl text-center font-semibold mt-32 mx-auto px-6">{$page.status}</h1>
-<h2 class="text-3xl text-center font-semibold mb-96 mx-auto px-6">{$page.error?.message}</h2>
+<h1 class="text-4xl font-semibold text-center px-4 pt-32">{page.status}</h1>
+<h2 class="text-4xl text-center px-4 pb-32">{page.error?.message}</h2>
