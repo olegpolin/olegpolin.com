@@ -3,9 +3,8 @@
   import Contact from '#lib/components/contact.svelte';
   import DashedRule from '#lib/components/dashed-rule.svelte';
   import PageHead from '#lib/components/page-head.svelte';
-  import Placeholder from '#lib/components/placeholder.svelte';
   import Selection from '#lib/components/selection.svelte';
-  import { clientWork, otherProjects, selected, type Project } from '#lib/data/work.ts';
+  import { clientWork, otherProjects, selected, type Project, type SelectedProject } from '#lib/data/work.ts';
 
   const indexSections: { title: string; projects: Project[] }[] = [
     { title: 'Client work', projects: clientWork },
@@ -19,8 +18,8 @@
 
 <DashedRule />
 
-{#snippet cover({ name, href, line, year }: Project)}
-  <Placeholder label="[COVER 16:9]" class="aspect-video" />
+{#snippet row({ name, href, line, year, cover }: SelectedProject)}
+  <enhanced:img src={cover} alt="{name} home page" class="aspect-video w-full" />
   <div class="min-w-0">
     <a class="link block text-xl font-medium" {href}>{name}</a>
     <span class="block text-muted-foreground">{line}</span>
@@ -39,12 +38,12 @@
               label="flenze.com"
               class="my-8 -mx-3.25 grid gap-8 p-3 md:-mx-6.25 md:grid-cols-[400px_minmax(0,1fr)] md:p-6"
             >
-              {@render cover(project)}
+              {@render row(project)}
             </Selection>
           </li>
         {:else}
           <li class={['grid gap-8 border-b py-8 md:grid-cols-[400px_minmax(0,1fr)]', i === 1 && 'border-t']}>
-            {@render cover(project)}
+            {@render row(project)}
           </li>
         {/if}
       {/each}

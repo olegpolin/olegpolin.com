@@ -1,3 +1,9 @@
+import type { Picture } from 'vite-imagetools';
+import flenze from '#lib/assets/covers/flenze.png?enhanced';
+import customersfly from '#lib/assets/covers/customersfly.png?enhanced';
+import materialExpressiveSvelte from '#lib/assets/covers/material-expressive-svelte.png?enhanced';
+import neobrutalismSvelte from '#lib/assets/covers/neobrutalism-svelte.png?enhanced';
+
 export interface Project {
   name: string;
   href: string;
@@ -5,31 +11,39 @@ export interface Project {
   year: string;
 }
 
-/* The four with a cover. */
-export const selected: Project[] = [
+export interface SelectedProject extends Project {
+  /* A 1920x1080 screenshot of the live site. */
+  cover: Picture;
+}
+
+export const selected: SelectedProject[] = [
   {
     name: 'Flenze',
     href: 'https://flenze.com',
     line: 'The stack your agent should have picked.',
-    year: '2026'
+    year: '2026',
+    cover: flenze
   },
   {
     name: 'CustomersFly',
     href: 'https://customersfly.com',
     line: 'Customer retention system for restaurants.',
-    year: '2026'
+    year: '2026',
+    cover: customersfly
   },
   {
     name: 'material-expressive-svelte',
-    href: 'https://github.com/olegpolin/material-expressive-svelte',
+    href: 'https://material-expressive-svelte.flenze.com',
     line: 'Material Design 3 Expressive starter kit for agents.',
-    year: '2026'
+    year: '2026',
+    cover: materialExpressiveSvelte
   },
   {
     name: 'neobrutalism-svelte',
     href: 'https://neobrutalism-svelte.flenze.com',
     line: 'Neobrutalism UI components for Svelte.',
-    year: '2026'
+    year: '2026',
+    cover: neobrutalismSvelte
   }
 ];
 

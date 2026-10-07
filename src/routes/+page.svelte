@@ -4,10 +4,12 @@
   import ArrowLink from '#lib/components/arrow-link.svelte';
   import CopyEmail from '#lib/components/copy-email.svelte';
   import DashedRule from '#lib/components/dashed-rule.svelte';
-  import Placeholder from '#lib/components/placeholder.svelte';
   import Selection from '#lib/components/selection.svelte';
   import { site } from '#lib/config/site.ts';
-  import { alsoBuilt } from '#lib/data/work.ts';
+  import { alsoBuilt, selected } from '#lib/data/work.ts';
+  import { photos } from '#lib/data/photos.ts';
+
+  const [flenze] = selected;
 </script>
 
 <Seo />
@@ -33,7 +35,7 @@
       Opinionated SvelteKit starters, add-ons and design styles for building web apps with coding agents:
       less code, fewer dependencies, and a project you can still read in a year.
     </p>
-    <Placeholder label="[COVER 16:9]" class="mt-8 aspect-video p-6 text-base" />
+    <enhanced:img src={flenze.cover} alt="Flenze home page" class="mt-8 aspect-video w-full" />
     <ArrowLink href="https://flenze.com" class="mt-4">flenze.com</ArrowLink>
   </div>
 </section>
@@ -79,8 +81,8 @@
   <div class="mx-auto max-w-170">
     <h2 class="mb-6 text-2xl font-medium" id="photographs">Photographs</h2>
     <div class="grid grid-cols-2 gap-5 md:grid-cols-4">
-      {#each { length: 4 } as _, i (i)}
-        <Placeholder label="[PHOTO]" class="aspect-4/3" />
+      {#each photos.slice(0, 4) as { id, year, picture } (id)}
+        <enhanced:img src={picture} alt="Photograph, {year}" class="aspect-4/3 w-full object-cover" />
       {/each}
     </div>
     <ArrowLink href="/photography" class="mt-4">All photographs</ArrowLink>
