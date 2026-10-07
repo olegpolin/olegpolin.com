@@ -1,56 +1,17 @@
-# sv
+# [olegpolin.com](https://olegpolin.com)
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+My portfolio
 
-## Creating a project
+## Tech Stack
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **[Svelte](https://svelte.dev)** (Svelte 5) - frontend framework
+- **[SvelteKit](https://svelte.dev/docs/kit)** (SvelteKit 3) - full-stack framework
+- **[Tailwind CSS](https://tailwindcss.com)** (Tailwind 4) - styling
+- **[shadcn-svelte](https://shadcn-svelte.com)** - UI components (built on **[bits-ui](https://bits-ui.com)**)
 
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
+## Getting Started
 
 ```sh
-# recreate this project
-npx sv@1.1.1 create --template minimal --types ts --add enhanced-img experimental="features:async,remoteFunctions" --install npm ./
-```
-
-## Adding features
-
-Add features to your project with `sv add`:
-
-```sh
-npx sv add
-```
-
-For example, to add Tailwind CSS:
-
-```sh
-npx sv add tailwindcss
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+npm i
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
