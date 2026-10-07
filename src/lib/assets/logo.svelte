@@ -4,14 +4,22 @@
   logo, then rerender it to static/favicon.ico and keep the two in sync.
 -->
 <script lang="ts">
-  import favicon from '#lib/assets/favicon.svg';
-  import { site } from '#lib/config/site.ts';
-
   interface Props {
     class?: string;
   }
 
   let { class: className }: Props = $props();
+  const clip = $props.id();
 </script>
 
-<img src={favicon} alt={site.name} class={className} />
+<svg class={className} viewBox="98 98 484 484" aria-hidden="true">
+  <defs>
+    <clipPath id={clip}><circle cx="340" cy="340" r="230" /></clipPath>
+  </defs>
+  <g clip-path="url(#{clip})">
+    <rect x="110" y="110" width="460" height="460" fill="#FFC53D" />
+    <rect x="110" y="416.67" width="460" height="153.33" fill="#E4342B" />
+    <line x1="110" y1="416.67" x2="570" y2="416.67" stroke="#111111" stroke-width="24" />
+  </g>
+  <circle cx="340" cy="340" r="230" fill="none" stroke="#111111" stroke-width="24" />
+</svg>
