@@ -9,7 +9,9 @@
   import { getNowPlaying } from '#lib/spotify.remote.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
-  const REFRESH_MS = 15_000; // longer than the server's 12 s cache, so each tick gets fresh data
+  // Longer than the server's 30 s cache, so each tick gets fresh data. Kept slow because every
+  // tick can cost a Spotify call and Development Mode's quota is small.
+  const REFRESH_MS = 60_000;
 
   // Browser only, so SSR never starts or waits on a Spotify poll.
   const nowPlaying = browser ? getNowPlaying() : null;

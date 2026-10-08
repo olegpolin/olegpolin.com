@@ -3,6 +3,8 @@
 
   It needs SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET and SPOTIFY_REFRESH_TOKEN. The first two
   come from the app at developer.spotify.com/dashboard.
+  Development Mode has a small, undocumented quota shared by every app on the account. Going
+  over it returns 429 QUOTA_EXCEEDED for hours, so a 429 pauses polling for its Retry-After.
   Refresh tokens expire six months after authorizing, so repeat these steps twice a year,
   or whenever the log shows `invalid_grant`:
 
@@ -39,11 +41,18 @@ interface SpotifyTrack {
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API_URL = 'https://api.spotify.com/v1/me/player';
 const TIMEOUT_MS = 10_000;
-/** How long one result is shared. Under the widget's 15 s refresh so every tick re-polls. */
-const CACHE_MS = 12_000;
+/** How long one result is shared. Under the widget's 60 s refresh so every tick re-polls. */
+const CACHE_MS = 30_000;
+/** How long the last played track is reused before asking Spotify again. */
+const RECENT_MS = 15 * 60_000;
+/** Pause after a 429 without a Retry-After header. Development Mode quota blocks last hours. */
+const DEFAULT_BACKOFF_MS = 60 * 60_000;
 
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
+let recent: { value: NowPlaying; at: number } | null = null;
+/** No Spotify calls until this time; set by a 429. */
+let blockedUntil = 0;
 
 function isConfigured() {
   return Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET && SPOTIFY_REFRESH_TOKEN);
@@ -81,6 +90,11 @@ async function api<T>(path: string): Promise<T | null> {
   });
   if (response.status === 204) return null;
   if (response.status === 401) token = null; // revoked early; the next poll gets a fresh one
+  if (response.status === 429) {
+    // Retrying during a quota block only prolongs it, so stop polling for as long as told.
+    const retryAfter = Number(response.headers.get('retry-after'));
+    blockedUntil = Date.now() + (retryAfter > 0 ? retryAfter * 1000 : DEFAULT_BACKOFF_MS);
+  }
   if (!response.ok) {
     throw new Error(`Spotify ${path} failed: ${response.status} ${await response.text()}`);
   }
@@ -110,31 +124,38 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   }>('/currently-playing');
   // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
-    return normalise(current.item, current.is_playing);
+    const value = normalise(current.item, current.is_playing);
+    recent = { value: { ...value, isPlaying: false }, at: Date.now() }; // becomes the last played
+    return value;
   }
 
-  const recent = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
-  const track = recent?.items[0]?.track;
-  return track ? normalise(track, false) : null;
+  // The last played track only changes when something plays, so ask for it rarely.
+  if (!recent || Date.now() - recent.at > RECENT_MS) {
+    const played = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
+    const track = played?.items[0]?.track;
+    if (track) recent = { value: normalise(track, false), at: Date.now() };
+  }
+  return recent?.value ?? null;
 }
 
 /**
- * The track to show, cached for CACHE_MS per isolate. A failed poll keeps the last track but
- * stops claiming it is still playing, and throws when there is no earlier result at all so a
- * client keeps whatever it already shows.
+ * The track to show, cached for CACHE_MS per isolate. A failed poll, or a 429 pause, keeps the
+ * last track but stops claiming it is still playing, so a client never falls back to its empty
+ * state while Spotify is merely unavailable.
  */
 export async function readNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
   if (result && Date.now() - result.at < CACHE_MS) return result.value;
+  if (Date.now() < blockedUntil) return result?.value ?? recent?.value ?? null;
 
-  const at = Date.now(); // the poll's start, so a client's next 15 s tick finds this stale
+  const at = Date.now(); // the poll's start, so a client's next tick finds this stale
   let value: NowPlaying | null;
   try {
     value = await fetchNowPlaying();
   } catch (error) {
     console.error('[spotify]', error);
-    if (!result) throw error;
-    value = result.value && { ...result.value, isPlaying: false };
+    value = result?.value ?? recent?.value ?? null;
+    if (value) value = { ...value, isPlaying: false };
   }
   // A slower poll that started earlier must not overwrite a newer result.
   if (!result || result.at < at) result = { value, at };
