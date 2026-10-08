@@ -92,8 +92,9 @@ async function api<T>(path: string): Promise<T | null> {
   if (response.status === 401) token = null; // revoked early; the next poll gets a fresh one
   if (response.status === 429) {
     // Retrying during a quota block only prolongs it, so stop polling for as long as told.
-    const retryAfter = Number(response.headers.get('retry-after'));
-    blockedUntil = Date.now() + (retryAfter > 0 ? retryAfter * 1000 : DEFAULT_BACKOFF_MS);
+    const retryAfter = response.headers.get('retry-after');
+    const seconds = retryAfter === null ? NaN : Number(retryAfter);
+    blockedUntil = Date.now() + (seconds >= 0 ? seconds * 1000 : DEFAULT_BACKOFF_MS);
   }
   if (!response.ok) {
     throw new Error(`Spotify ${path} failed: ${response.status} ${await response.text()}`);
@@ -139,6 +140,16 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 }
 
 /**
+ * What to serve while Spotify is unavailable: the last known track, no longer claimed to be
+ * playing. Throws when nothing is known yet, so a client keeps whatever it already shows.
+ */
+function fallback(cause: unknown): NowPlaying {
+  const last = result?.value ?? recent?.value;
+  if (!last) throw cause;
+  return { ...last, isPlaying: false };
+}
+
+/**
  * The track to show, cached for CACHE_MS per isolate. A failed poll, or a 429 pause, keeps the
  * last track but stops claiming it is still playing, so a client never falls back to its empty
  * state while Spotify is merely unavailable.
@@ -146,7 +157,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 export async function readNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
   if (result && Date.now() - result.at < CACHE_MS) return result.value;
-  if (Date.now() < blockedUntil) return result?.value ?? recent?.value ?? null;
+  if (Date.now() < blockedUntil) return fallback(new Error('Spotify polling is paused'));
 
   const at = Date.now(); // the poll's start, so a client's next tick finds this stale
   let value: NowPlaying | null;
@@ -154,8 +165,7 @@ export async function readNowPlaying(): Promise<NowPlaying | null> {
     value = await fetchNowPlaying();
   } catch (error) {
     console.error('[spotify]', error);
-    value = result?.value ?? recent?.value ?? null;
-    if (value) value = { ...value, isPlaying: false };
+    value = fallback(error);
   }
   // A slower poll that started earlier must not overwrite a newer result.
   if (!result || result.at < at) result = { value, at };
