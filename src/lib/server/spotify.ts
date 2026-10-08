@@ -159,11 +159,11 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   if (recentUnconfirmed || Date.now() - recentCheckedAt > RECENT_MS) {
     // A failed lookup waits too, but only once there is a track to show in the meantime.
     if (recent) recentCheckedAt = Date.now();
+    recentUnconfirmed = false;
     const played = await api<{ items: { track: SpotifyTrack | null; played_at: string }[] }>(
       '/recently-played?limit=1'
     );
     recentCheckedAt = Date.now(); // an empty history is an answer too
-    recentUnconfirmed = false;
     const item = played?.items[0];
     // History lags and omits very short plays, so never move back behind a track seen playing.
     if (item?.track && Date.parse(item.played_at) > recentSeenAt) {

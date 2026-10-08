@@ -97,10 +97,10 @@
       </a>
     {:else if shown}
       <div class="flex items-center gap-5">{@render card(shown)}</div>
-    {:else if nowPlaying?.error}
-      {@render empty('Spotify is unavailable right now.')}
     {:else if nowPlaying?.ready}
       {@render empty('Nothing playing right now.')}
+    {:else if nowPlaying?.error}
+      {@render empty('Spotify is unavailable right now.')}
     {:else}
       <div class="flex items-center gap-5" aria-hidden="true">
         <Skeleton class="size-16 shrink-0" />
