@@ -4,6 +4,7 @@
   import DashedRule from '#lib/components/dashed-rule.svelte';
   import PageHead from '#lib/components/page-head.svelte';
   import Selection from '#lib/components/selection.svelte';
+  import NowPlaying from '#lib/components/now-playing.svelte';
 
   const favorites: { title: string; items: { name: string; by?: string }[] }[] = [
     {
@@ -65,6 +66,10 @@
     </p>
   </div>
 </section>
+
+<DashedRule />
+
+<NowPlaying />
 
 <DashedRule />
 
