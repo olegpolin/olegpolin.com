@@ -3,7 +3,7 @@
   one played, else an empty state. Every state is a 68 px row so nothing shifts as it loads.
 -->
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { onMount } from 'svelte';
   import { browser } from '$app/env';
   import { Skeleton } from '#lib/components/ui/skeleton/index.ts';
   import { getNowPlaying } from '#lib/spotify.remote.ts';
@@ -18,12 +18,13 @@
   // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
   // so the card never flickers or blanks.
   function refresh() {
-    if (nowPlaying && !nowPlaying.loading && !document.hidden) nowPlaying.refresh().catch(() => {});
+    if (nowPlaying && !document.hidden) nowPlaying.refresh().catch(() => {});
   }
 
-  $effect(() => {
+  // `onMount` rather than `$effect`: this must run once and never re-run on query state.
+  onMount(() => {
     // Coming back to the page reuses the cached query, so catch up instead of showing an old track.
-    if (untrack(() => nowPlaying?.ready || nowPlaying?.error)) refresh();
+    if (nowPlaying?.ready || nowPlaying?.error) refresh();
     const timer = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(timer);
   });
@@ -80,7 +81,7 @@
   </div>
 {/snippet}
 
-<section class="px-4 py-16" aria-label="Now playing">
+<section class="px-4 py-16" aria-label="Spotify">
   <div class="mx-auto min-h-17 max-w-170">
     {#if nowPlaying?.current?.url}
       <a
@@ -118,7 +119,9 @@
   }
   .bars span {
     width: 2px;
-    height: 40%;
+    height: 100%;
+    transform: scaleY(0.4);
+    transform-origin: bottom;
     background: currentColor;
     animation: bounce 1.1s ease-in-out infinite;
   }
@@ -131,16 +134,16 @@
   @keyframes bounce {
     0%,
     100% {
-      height: 30%;
+      transform: scaleY(0.3);
     }
     50% {
-      height: 100%;
+      transform: scaleY(1);
     }
   }
   @media (prefers-reduced-motion: reduce) {
     .bars span {
       animation: none;
-      height: 60%;
+      transform: scaleY(0.6);
     }
   }
 </style>

@@ -125,12 +125,13 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 /**
  * The track to show. The settled result is shared by every request in the isolate for
  * CACHE_MS. Once it is stale, the first request polls Spotify while the rest keep getting the
- * stale value until that poll lands, so Spotify sees one poll per window however many visitors
- * there are, and no request ever waits on another request's fetch (Workers cancels a request's
- * fetches when its client leaves). A failed poll keeps the last track but stops claiming it is
- * still playing.
+ * stale value until that poll lands, so a warm isolate makes one poll per window however many
+ * visitors there are, and no request ever waits on another request's fetch (Workers cancels a
+ * request's fetches when its client leaves). Concurrent requests on a cold isolate each poll
+ * once; that is rare and small. A failed poll keeps the last track but stops claiming it is
+ * still playing, and throws when there is nothing to fall back on so clients keep what they show.
  */
-export async function getNowPlaying(): Promise<NowPlaying | null> {
+export async function readNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
   const started = Date.now();
   if (result) {
@@ -140,16 +141,16 @@ export async function getNowPlaying(): Promise<NowPlaying | null> {
   }
 
   pollingSince = started;
-  let value: NowPlaying | null;
   try {
-    value = await fetchNowPlaying();
+    const value = await fetchNowPlaying();
+    // A slower poll that started earlier must not overwrite a newer result.
+    if (!result || result.at < started) result = { value, at: started };
   } catch (error) {
     console.error('[spotify]', error);
-    const stale = result?.value;
-    value = stale ? { ...stale, isPlaying: false } : null;
+    if (!result?.value) throw error;
+    if (result.at < started) result = { value: { ...result.value, isPlaying: false }, at: started };
+  } finally {
+    if (pollingSince === started) pollingSince = 0;
   }
-  // A slow poll that started earlier must not overwrite a newer result.
-  if (!result || result.at < started) result = { value, at: Date.now() };
-  if (pollingSince === started) pollingSince = 0;
-  return result.value;
+  return result?.value ?? null;
 }
