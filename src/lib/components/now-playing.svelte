@@ -18,7 +18,7 @@
 
   // A failed refresh keeps the last value, which may still claim to be playing. Until a refresh
   // succeeds, show it as the last played instead.
-  const track = $derived(
+  const shown = $derived(
     nowPlaying?.current && nowPlaying.error
       ? { ...nowPlaying.current, isPlaying: false }
       : nowPlaying?.current
@@ -91,12 +91,12 @@
 
 <section class="px-4 py-16" aria-label="Spotify">
   <div class="mx-auto min-h-17 max-w-170">
-    {#if track?.url}
-      <a href={track.url} target="_blank" rel="noreferrer" class="group/track flex items-center gap-5">
-        {@render card(track)}
+    {#if shown?.url}
+      <a href={shown.url} target="_blank" rel="noreferrer" class="group/track flex items-center gap-5">
+        {@render card(shown)}
       </a>
-    {:else if track}
-      <div class="flex items-center gap-5">{@render card(track)}</div>
+    {:else if shown}
+      <div class="flex items-center gap-5">{@render card(shown)}</div>
     {:else if nowPlaying?.ready || nowPlaying?.error}
       {@render empty()}
     {:else}
