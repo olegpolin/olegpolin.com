@@ -30,6 +30,11 @@ export interface NowPlaying {
   image: string | null;
   /** Null for local files, which Spotify has no page for. */
   url: string | null;
+  /**
+   * When the track was played, in ms since the epoch. From history this is Spotify's `played_at`;
+   * for a track seen playing or paused it is the time of that snapshot, so roughly now.
+   */
+  playedAt: number;
 }
 
 interface SpotifyTrack {
@@ -123,7 +128,7 @@ function pause(retryAfter: string | null, body: string) {
   nextPollAt = Math.max(nextPollAt, Date.now() + ms); // never shorten a pause already in force
 }
 
-function normalise(track: SpotifyTrack, isPlaying: boolean): NowPlaying {
+function normalise(track: SpotifyTrack, isPlaying: boolean, playedAt: number): NowPlaying {
   // Album art comes as 640/300/64 px; the widget shows it at 64 px, so 300 is plenty.
   const images = [...track.album.images].sort(
     (a, b) => Math.abs((a.width ?? 0) - 300) - Math.abs((b.width ?? 0) - 300)
@@ -133,7 +138,8 @@ function normalise(track: SpotifyTrack, isPlaying: boolean): NowPlaying {
     title: track.name,
     artists: track.artists.map((a) => a.name).join(', '),
     image: images[0]?.url ?? null,
-    url: track.external_urls.spotify ?? null
+    url: track.external_urls.spotify ?? null,
+    playedAt
   };
 }
 
@@ -147,7 +153,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   }>('/currently-playing');
   // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
-    const value = normalise(current.item, current.is_playing);
+    const value = normalise(current.item, current.is_playing, current.timestamp || Date.now());
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
@@ -167,8 +173,9 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     recentCheckedAt = Date.now(); // an empty history is an answer too
     const item = played?.items[0];
     // History lags and omits very short plays, so never move back behind a track seen playing.
-    if (item?.track && Date.parse(item.played_at) > recentSeenAt) {
-      recent = normalise(item.track, false);
+    const playedAt = item ? Date.parse(item.played_at) : 0;
+    if (item?.track && playedAt > recentSeenAt) {
+      recent = normalise(item.track, false, playedAt);
     }
   }
   return recent;

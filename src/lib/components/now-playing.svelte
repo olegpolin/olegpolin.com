@@ -1,12 +1,14 @@
 <!--
   The live Spotify widget on the About page: the track playing right now, else the last one
-  played, else an empty or unavailable state. Every state is a 68 px row so nothing shifts.
+  played and how long ago, else an empty or unavailable state. Every state is a 68 px row so
+  nothing shifts.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/env';
   import { Skeleton } from '#lib/components/ui/skeleton/index.ts';
   import { getNowPlaying } from '#lib/spotify.remote.ts';
+  import { timeAgo } from '#lib/time.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
   // Longer than the server's 55 s cache, so each tick gets fresh data. Kept slow because every
@@ -15,6 +17,9 @@
 
   // Browser only, so SSR never starts or waits on a Spotify poll.
   const nowPlaying = browser ? getNowPlaying() : null;
+  // The clock behind "last played 3 minutes ago". Advanced on every tick and on coming back to
+  // the tab, so the label keeps up even while refreshes are skipped or fail.
+  let now = $state(Date.now());
 
   // A refresh keeps `current` until a new value arrives, and a failed one only sets `error`, so
   // the card never blanks. While refreshes fail, stop claiming the track is still playing.
@@ -25,6 +30,7 @@
   );
 
   function refresh() {
+    now = Date.now();
     if (nowPlaying && !document.hidden) nowPlaying.refresh().catch(() => {});
   }
 
@@ -71,7 +77,10 @@
     {@render glyph()}
   {/if}
   <div class="min-w-0">
-    {@render eyebrow(track.isPlaying ? 'now playing' : 'last played', track.isPlaying)}
+    {@render eyebrow(
+      track.isPlaying ? 'now playing' : `last played ${timeAgo(track.playedAt, now)}`,
+      track.isPlaying
+    )}
     <p class="truncate font-medium underline-offset-4 group-hover/track:underline">{track.title}</p>
     <p class="truncate text-muted-foreground">{track.artists}</p>
   </div>
