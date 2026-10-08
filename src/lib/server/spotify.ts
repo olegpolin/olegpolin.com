@@ -41,22 +41,18 @@ interface SpotifyTrack {
 
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API_URL = 'https://api.spotify.com/v1/me/player';
-const UPSTREAM_TIMEOUT_MS = 10_000;
-/** How long a fetched result is shared by every stream in this isolate. */
+const TIMEOUT_MS = 10_000;
+/** How long one result is shared, so Spotify is polled at most this often per isolate. */
 const CACHE_MS = 15_000;
 
-// Per-isolate state: one access token, one in-flight refresh, one poll result.
 let token: { value: string; expiresAt: number } | null = null;
-let refreshing: Promise<string> | null = null;
-let last: { value: NowPlaying | null; at: number } | null = null;
-let polling: Promise<NowPlaying | null> | null = null;
-let cooldownUntil = 0;
+let result: { promise: Promise<NowPlaying | null>; at: number } | null = null;
 
 export function isConfigured() {
   return Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET && SPOTIFY_REFRESH_TOKEN);
 }
 
-async function refreshToken() {
+async function fetchToken() {
   const response = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: {
@@ -67,7 +63,7 @@ async function refreshToken() {
       grant_type: 'refresh_token',
       refresh_token: SPOTIFY_REFRESH_TOKEN!
     }),
-    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
+    signal: AbortSignal.timeout(TIMEOUT_MS)
   });
   if (!response.ok) throw new Error(`Spotify token refresh failed: ${response.status}`);
 
@@ -75,36 +71,20 @@ async function refreshToken() {
     access_token: string;
     expires_in: number;
   };
-  token = { value: access_token, expiresAt: Date.now() + expires_in * 1000 };
-  return access_token;
-}
-
-/** The cached access token, refreshed a minute before expiry; concurrent callers share one refresh. */
-function getAccessToken() {
-  if (token && token.expiresAt > Date.now() + 60_000) return Promise.resolve(token.value);
-  refreshing ??= refreshToken().finally(() => (refreshing = null));
-  return refreshing;
+  return { value: access_token, expiresAt: Date.now() + expires_in * 1000 };
 }
 
 async function api<T>(path: string): Promise<T | null> {
-  let response = await fetch(`${API_URL}${path}`, {
-    headers: { Authorization: `Bearer ${await getAccessToken()}` },
-    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
+  if (!token || token.expiresAt < Date.now() + 60_000) token = await fetchToken();
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token.value}` },
+    signal: AbortSignal.timeout(TIMEOUT_MS)
   });
-  // Spotify can revoke a token before it expires; refresh once and retry.
-  if (response.status === 401) {
-    token = null;
-    response = await fetch(`${API_URL}${path}`, {
-      headers: { Authorization: `Bearer ${await getAccessToken()}` },
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
-    });
-  }
   if (response.status === 204) return null;
-  if (response.status === 429) {
-    const seconds = Number(response.headers.get('retry-after')) || 30;
-    cooldownUntil = Date.now() + seconds * 1000;
+  if (!response.ok) {
+    token = null; // in case Spotify revoked it; the next poll gets a fresh one
+    throw new Error(`Spotify ${path} failed: ${response.status}`);
   }
-  if (!response.ok) throw new Error(`Spotify ${path} failed: ${response.status}`);
   return (await response.json()) as T;
 }
 
@@ -137,25 +117,20 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 }
 
 /**
- * The track to show. Shared by every stream in this isolate, so Spotify is polled at most
- * once per CACHE_MS however many visitors are connected. On an upstream failure or 429
- * cooldown it keeps returning the last good value rather than flashing the empty state.
+ * The track to show. One result is shared by every caller for CACHE_MS, and a failed
+ * poll keeps the previous one, so Spotify hiccups never flash the empty state.
  */
 export function getNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return Promise.resolve(null);
-  const now = Date.now();
-  if ((last && now - last.at < CACHE_MS) || now < cooldownUntil) {
-    return Promise.resolve(last?.value ?? null);
+  if (!result || Date.now() - result.at > CACHE_MS) {
+    const previous = result?.promise ?? Promise.resolve(null);
+    result = {
+      at: Date.now(),
+      promise: fetchNowPlaying().catch((error) => {
+        console.error('[spotify]', error);
+        return previous;
+      })
+    };
   }
-  polling ??= fetchNowPlaying()
-    .catch((error) => {
-      console.error('[spotify]', error);
-      return last?.value ?? null;
-    })
-    .then((value) => {
-      last = { value, at: Date.now() };
-      polling = null;
-      return value;
-    });
-  return polling;
+  return result.promise;
 }

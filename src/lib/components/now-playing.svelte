@@ -5,7 +5,21 @@
 <script lang="ts">
   import { getNowPlaying } from '#lib/spotify.remote.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
+
+  const REFRESH_MS = 15_000;
+
+  // `refresh()` keeps the current track until the new one arrives, so updates never flicker.
+  function refresh() {
+    if (!document.hidden) getNowPlaying().refresh().catch(() => {});
+  }
+
+  $effect(() => {
+    const timer = setInterval(refresh, REFRESH_MS);
+    return () => clearInterval(timer);
+  });
 </script>
+
+<svelte:document onvisibilitychange={refresh} />
 
 {#snippet eyebrow(text: string, live = false)}
   <p class="mono flex items-center gap-2 text-label text-muted-foreground">
