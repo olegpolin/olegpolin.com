@@ -1,4 +1,21 @@
-// Spotify Web API client for the now-playing widget. Server only.
+/*
+  Spotify Web API client for the now-playing widget. Server only.
+
+  It needs SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET and SPOTIFY_REFRESH_TOKEN
+  (see src/env.ts). The first two come from the app at developer.spotify.com/dashboard.
+  The refresh token is a one-time step, repeated only if Spotify revokes it:
+
+  1. In the app's settings, add the redirect URI http://127.0.0.1:8888/callback and save.
+  2. Open this URL, signed in as the account to show, and click Agree:
+     https://accounts.spotify.com/authorize?client_id=<CLIENT_ID>&response_type=code
+       &redirect_uri=http%3A%2F%2F127.0.0.1%3A8888%2Fcallback
+       &scope=user-read-currently-playing%20user-read-recently-played
+     The browser lands on an unreachable 127.0.0.1 page; copy the `code` from its address bar.
+  3. Within a minute, exchange it (curl, or Invoke-RestMethod on Windows):
+     curl -u "<CLIENT_ID>:<CLIENT_SECRET>" -d grant_type=authorization_code -d code=<CODE>
+       -d redirect_uri=http://127.0.0.1:8888/callback https://accounts.spotify.com/api/token
+     Keep `refresh_token` from the response; `access_token` expires hourly and is fetched here.
+*/
 import {
   SPOTIFY_CLIENT_ID,
   SPOTIFY_CLIENT_SECRET,
