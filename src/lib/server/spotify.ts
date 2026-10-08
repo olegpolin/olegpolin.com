@@ -16,6 +16,7 @@
      curl -u "<CLIENT_ID>:<CLIENT_SECRET>" -d grant_type=authorization_code -d code=<CODE> -d redirect_uri=http://127.0.0.1:8888/callback https://accounts.spotify.com/api/token
      Keep `refresh_token` from the response; `access_token` expires hourly and is fetched here.
 */
+import { error } from '@sveltejs/kit';
 import {
   SPOTIFY_CLIENT_ID,
   SPOTIFY_CLIENT_SECRET,
@@ -45,20 +46,19 @@ const TIMEOUT_MS = 10_000;
 const CACHE_MS = 30_000;
 /** How long the last played track is reused before asking Spotify again. */
 const RECENT_MS = 15 * 60_000;
-/** Pause after a 429 without a Retry-After header. Development Mode quota blocks last hours. */
-const DEFAULT_BACKOFF_MS = 60 * 60_000;
+/** The least a quota 429 pauses polling, and the pause when Retry-After is missing. */
+const QUOTA_PAUSE_MS = 60 * 60_000;
+/** The most any Retry-After is trusted for, so a bogus value cannot stall an isolate for good. */
+const MAX_PAUSE_MS = 24 * 60 * 60_000;
 
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
+/** The last played track. `at` is 0 when it was only seen playing and still needs confirming. */
 let recent: { value: NowPlaying; at: number } | null = null;
-/** No Spotify calls until this time; set by a 429. */
-let blockedUntil = 0;
-/**
- * When the latest poll started. A poll that left nothing to serve must not be retried per
- * request. This also keeps polls sequential within an isolate, which the caches rely on: a poll
- * is at most three fetches of TIMEOUT_MS each, so it always finishes within CACHE_MS.
- */
-let lastPoll = 0;
+/** No Spotify calls before this time: one cache window after a poll starts, or a 429's pause. */
+let nextPollAt = 0;
+/** The poll in progress, shared by every request that arrives while it runs. */
+let inflight: Promise<NowPlaying | null> | null = null;
 
 function isConfigured() {
   return Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET && SPOTIFY_REFRESH_TOKEN);
@@ -96,17 +96,21 @@ async function api<T>(path: string): Promise<T | null> {
   });
   if (response.status === 204) return null;
   if (response.status === 401) token = null; // revoked early; the next poll gets a fresh one
-  if (response.status === 429) {
-    // Retrying during a quota block only prolongs it, so stop polling for as long as told.
-    const retryAfter = response.headers.get('retry-after');
-    const seconds = retryAfter === null ? NaN : Number(retryAfter);
-    const until = Date.now() + (seconds > 0 ? seconds * 1000 : DEFAULT_BACKOFF_MS);
-    blockedUntil = Math.max(blockedUntil, until); // never shorten a pause already in force
-  }
   if (!response.ok) {
-    throw new Error(`Spotify ${path} failed: ${response.status} ${await response.text()}`);
+    const body = await response.text();
+    if (response.status === 429) pause(response.headers.get('retry-after'), body);
+    throw new Error(`Spotify ${path} failed: ${response.status} ${body}`);
   }
   return (await response.json()) as T;
+}
+
+/** Stop polling for as long as a 429 says. Retrying during a quota block only prolongs it. */
+function pause(retryAfter: string | null, body: string) {
+  const seconds = Number(retryAfter); // 0 when missing, NaN when not a number
+  let ms = seconds > 0 ? Math.min(seconds * 1000, MAX_PAUSE_MS) : QUOTA_PAUSE_MS;
+  // Quota blocks last hours whatever the header says, unlike the 30 s rate-limit window.
+  if (body.includes('QUOTA_EXCEEDED')) ms = Math.max(ms, QUOTA_PAUSE_MS);
+  nextPollAt = Math.max(nextPollAt, Date.now() + ms); // never shorten a pause already in force
 }
 
 function normalise(track: SpotifyTrack, isPlaying: boolean): NowPlaying {
@@ -133,13 +137,14 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
     const value = normalise(current.item, current.is_playing);
-    recent = { value: { ...value, isPlaying: false }, at: Date.now() }; // becomes the last played
+    // Remember it as the last played, but unconfirmed: once playback stops, ask Spotify in case
+    // a shorter track came and went between polls.
+    recent = { value: { ...value, isPlaying: false }, at: 0 };
     return value;
   }
 
-  // The last played track only changes when something plays, so ask for it rarely: when it is
-  // old, or right after playback stopped, since a short track may have come and gone unseen.
-  if (!recent || Date.now() - recent.at > RECENT_MS || result?.value?.isPlaying) {
+  // The last played track only changes when something plays, so ask for it rarely.
+  if (!recent || Date.now() - recent.at > RECENT_MS) {
     const played = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
     const track = played?.items[0]?.track;
     if (track) recent = { value: normalise(track, false), at: Date.now() };
@@ -149,37 +154,42 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 
 /**
  * What to serve while Spotify is unavailable: the last known track, no longer claimed to be
- * playing. Throws when nothing is known yet, so a client keeps whatever it already shows.
+ * playing. With nothing known yet it fails as an expected error, which SvelteKit does not log
+ * as a crash and which leaves a client showing whatever it already has.
  */
-function fallback(cause: unknown): NowPlaying {
+function fallback(): NowPlaying {
   const last = result?.value ?? recent?.value;
-  if (!last) throw cause;
+  if (!last) error(503, 'Spotify is unavailable');
   return { ...last, isPlaying: false };
 }
 
 /**
- * The track to show, cached for CACHE_MS per isolate. A failed poll, or a 429 pause, keeps the
- * isolate's last track but stops claiming it is still playing. State lives in isolate memory,
- * so a fresh isolate during a pause spends one probe and then has nothing to serve until the
- * pause ends; a shared store would be the next step if that matters.
+ * The track to show, cached for CACHE_MS per isolate. Polls run one at a time and at most once
+ * per cache window, whatever their outcome. A failed poll, or a 429 pause, keeps the isolate's
+ * last track but stops claiming it is still playing. State lives in isolate memory, so a fresh
+ * isolate during a pause spends one probe and then has nothing to serve until the pause ends;
+ * a shared store would be the next step if that matters.
  */
 export async function readNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
-  const at = Date.now(); // the poll's start, so a client's next tick finds this stale
-  if (result && at - result.at < CACHE_MS) return result.value;
-  if (at < blockedUntil || at - lastPoll < CACHE_MS) {
-    return fallback(new Error('Spotify polling is paused or was just attempted'));
-  }
-  lastPoll = at;
+  const now = Date.now();
+  if (result && now - result.at < CACHE_MS) return result.value;
+  if (inflight) return inflight;
+  if (now < nextPollAt) return fallback();
 
+  nextPollAt = now + CACHE_MS;
+  inflight = poll(now).finally(() => (inflight = null));
+  return inflight;
+}
+
+async function poll(at: number): Promise<NowPlaying | null> {
   let value: NowPlaying | null;
   try {
     value = await fetchNowPlaying();
-  } catch (error) {
-    console.error('[spotify]', error);
-    value = fallback(error);
+  } catch (cause) {
+    console.error('[spotify]', cause);
+    value = fallback();
   }
-  // A slower poll that started earlier must not overwrite a newer result.
-  if (!result || result.at < at) result = { value, at };
-  return result.value;
+  result = { value, at }; // dated from the start, so a client's next tick finds it stale
+  return value;
 }
