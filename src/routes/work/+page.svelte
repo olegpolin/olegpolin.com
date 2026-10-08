@@ -36,7 +36,7 @@
           <li>
             <Selection
               label="flenze.com"
-              class="my-8 -mx-3.25 grid gap-8 p-3 md:-mx-6.25 md:grid-cols-[400px_minmax(0,1fr)] md:p-6"
+              class="my-8 -mx-2.25 grid gap-8 p-2 md:-mx-6.25 md:grid-cols-[400px_minmax(0,1fr)] md:p-6"
             >
               {@render row(project)}
             </Selection>
