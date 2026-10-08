@@ -8,8 +8,6 @@ See the Tech Stack section of `README.md`. If you add, remove, or change a core 
 
 Most of this tech stack had a recent major version, so your training data is likely stale. When unsure about an API, check the official docs instead of guessing.
 
-Environment variables are declared in `src/env.ts` (SvelteKit 3 `defineEnvVars`) and imported from `$app/env/private`. They come from `.env.local` in development and Cloudflare secrets in production, and must stay optional so builds and previews without secrets keep working. Setup steps live in `README.md`.
-
 ## Skills
 
 - Use the **svelte-code-writer** and **svelte-core-bestpractices** skills whenever you write or edit Svelte code. Remote functions are enabled, so use those. The enhanced-img plugin is added, so use that for images. Always check the official docs.
