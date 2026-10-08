@@ -63,8 +63,9 @@ let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
 /**
  * The last played track, whether history should still confirm it, when history was last asked,
- * and when a track was last seen playing. The clocks differ by seconds at most, far less than the
- * lag between a play and history listing it, so the poll's own time is compared with `played_at`.
+ * and when the track in the player was last played (its `playedAt`). History may only replace
+ * it with a track played after that. The clocks differ by seconds at most, far less than the lag
+ * between a play and history listing it, so a poll's own time compares fine with `played_at`.
  */
 let recent: NowPlaying | null = null;
 let recentUnconfirmed = false;
@@ -163,9 +164,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
     recentUnconfirmed = true;
-    // Not `timestamp`: during autoplay that stays at the first play, and history listing an
-    // earlier track of the session would then win over this one.
-    recentSeenAt = now;
+    recentSeenAt = playedAt;
     return value;
   }
 
@@ -179,10 +178,10 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     );
     recentCheckedAt = Date.now(); // an empty history is an answer too
     const item = played?.items[0];
-    // History lags and omits very short plays, so never move back behind a track seen playing.
-    const playedAt = item ? Date.parse(item.played_at) : 0;
-    if (item?.track && playedAt > recentSeenAt) {
-      recent = normalise(item.track, false, playedAt);
+    if (item?.track) {
+      // History lags and omits very short plays, so never move back behind a track seen playing.
+      const playedAt = Date.parse(item.played_at);
+      if (playedAt > recentSeenAt) recent = normalise(item.track, false, playedAt);
     }
   }
   return recent;
