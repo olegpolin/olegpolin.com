@@ -48,7 +48,7 @@ const TIMEOUT_MS = 10_000;
  */
 const CACHE_MS = 55_000;
 /** How long the last played track is reused before asking Spotify again. */
-const RECENT_MS = 15 * 60_000;
+const RECENT_MS = 5 * 60_000;
 /** The least a quota 429 pauses polling, and the pause when Retry-After is missing. */
 const QUOTA_PAUSE_MS = 60 * 60_000;
 /** The most any Retry-After is trusted for, so a bogus value cannot stall an isolate for good. */
