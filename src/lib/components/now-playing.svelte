@@ -16,6 +16,14 @@
   // Browser only, so SSR never starts or waits on a Spotify poll.
   const nowPlaying = browser ? getNowPlaying() : null;
 
+  // A failed refresh keeps the last value, which may still claim to be playing. Until a refresh
+  // succeeds, show it as the last played instead.
+  const track = $derived(
+    nowPlaying?.current && nowPlaying.error
+      ? { ...nowPlaying.current, isPlaying: false }
+      : nowPlaying?.current
+  );
+
   // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
   // so the card never flickers or blanks.
   function refresh() {
@@ -83,17 +91,12 @@
 
 <section class="px-4 py-16" aria-label="Spotify">
   <div class="mx-auto min-h-17 max-w-170">
-    {#if nowPlaying?.current?.url}
-      <a
-        href={nowPlaying.current.url}
-        target="_blank"
-        rel="noreferrer"
-        class="group/track flex items-center gap-5"
-      >
-        {@render card(nowPlaying.current)}
+    {#if track?.url}
+      <a href={track.url} target="_blank" rel="noreferrer" class="group/track flex items-center gap-5">
+        {@render card(track)}
       </a>
-    {:else if nowPlaying?.current}
-      <div class="flex items-center gap-5">{@render card(nowPlaying.current)}</div>
+    {:else if track}
+      <div class="flex items-center gap-5">{@render card(track)}</div>
     {:else if nowPlaying?.ready || nowPlaying?.error}
       {@render empty()}
     {:else}

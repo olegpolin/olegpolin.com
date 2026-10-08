@@ -79,7 +79,9 @@ async function fetchToken() {
     signal: AbortSignal.timeout(TIMEOUT_MS)
   });
   if (!response.ok) {
-    throw new Error(`Spotify token refresh failed: ${response.status} ${await response.text()}`);
+    const body = await response.text().catch(() => '');
+    if (response.status === 429) pause(response.headers.get('retry-after'), body);
+    throw new Error(`Spotify token refresh failed: ${response.status} ${body}`);
   }
 
   const { access_token, expires_in } = (await response.json()) as {
@@ -161,7 +163,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
  * as a crash and which leaves a client showing whatever it already has.
  */
 function fallback(): NowPlaying {
-  const last = result?.value ?? recent;
+  const last = result?.value;
   if (!last) error(503, 'Spotify is unavailable');
   return { ...last, isPlaying: false };
 }
