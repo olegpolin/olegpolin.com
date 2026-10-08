@@ -46,11 +46,12 @@
 <svelte:document onvisibilitychange={refresh} />
 
 {#snippet eyebrow(text: string, live = false)}
+  <!-- The text truncates in its own span: an ellipsis never renders on a flex container's own text. -->
   <p class="mono flex items-center gap-2 text-label text-muted-foreground">
     {#if live}
-      <span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span class="bars shrink-0" aria-hidden="true"><span></span><span></span><span></span></span>
     {/if}
-    {text}
+    <span class="truncate">{text}</span>
   </p>
 {/snippet}
 

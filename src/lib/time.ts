@@ -8,10 +8,12 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['minute', 60]
 ];
 
-const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+// Always numeric: "yesterday" would be wrong for 47 hours, and "last week" reads badly after
+// a "last played" prefix.
+const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'always' });
 
 /**
- * How long ago `then` was: "just now", "3 minutes ago", "yesterday", "2 weeks ago". Uses the
+ * How long ago `then` was: "just now", "3 minutes ago", "1 day ago", "2 weeks ago". Uses the
  * largest unit that fits; anything under a minute, or in the future, is "just now".
  */
 export function timeAgo(then: number, now = Date.now()): string {

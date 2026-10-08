@@ -31,8 +31,8 @@ export interface NowPlaying {
   /** Null for local files, which Spotify has no page for. */
   url: string | null;
   /**
-   * When the track was played, in ms since the epoch. From history this is Spotify's `played_at`;
-   * for a track seen playing or paused it is the time of that snapshot, so roughly now.
+   * When the track was played, in ms since the epoch. From history this is Spotify's `played_at`.
+   * A track seen playing is being played now; a paused one was played when it was paused.
    */
   playedAt: number;
 }
@@ -153,7 +153,10 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   }>('/currently-playing');
   // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
-    const value = normalise(current.item, current.is_playing, current.timestamp || Date.now());
+    // `timestamp` is when playback last changed (play, pause, skip), so it is the pause time of
+    // a paused track but could be an hour back for one still playing.
+    const playedAt = current.is_playing ? Date.now() : current.timestamp || Date.now();
+    const value = normalise(current.item, current.is_playing, playedAt);
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
