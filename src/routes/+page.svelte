@@ -36,7 +36,7 @@
       less code, fewer dependencies, and a project you can still read in a year.
     </p>
     <enhanced:img src={flenze.cover} alt="Flenze home page" class="mt-8 aspect-video w-full" />
-    <ArrowLink href="https://flenze.com" class="mt-4">flenze.com</ArrowLink>
+    <ArrowLink href="https://flenze.com" target="_blank" rel="noreferrer" class="mt-4">flenze.com</ArrowLink>
   </div>
 </section>
 
@@ -48,7 +48,7 @@
     <ul class="border-t">
       {#each alsoBuilt as { name, href, line, year } (href)}
         <li class="grid grid-cols-[minmax(0,1fr)_72px] items-baseline gap-x-6 gap-y-1 border-b py-4 md:grid-cols-[200px_minmax(0,1fr)_72px]">
-          <a class="link justify-self-start font-medium" {href}>{name}</a>
+          <a class="link justify-self-start font-medium" {href} target="_blank" rel="noreferrer">{name}</a>
           <span class="mono text-right text-sm leading-6 text-muted-foreground md:order-last">{year}</span>
           <span class="col-span-2 text-muted-foreground md:col-span-1">{line}</span>
         </li>

@@ -21,7 +21,7 @@
 {#snippet row({ name, href, line, year, cover }: SelectedProject)}
   <enhanced:img src={cover} alt="{name} home page" class="aspect-video w-full" />
   <div class="min-w-0">
-    <a class="link block text-xl font-medium" {href}>{name}</a>
+    <a class="link block text-xl font-medium" {href} target="_blank" rel="noreferrer">{name}</a>
     <span class="block text-muted-foreground">{line}</span>
     <span class="mono mt-2 block text-sm text-muted-foreground">{year}</span>
   </div>
@@ -61,7 +61,7 @@
         {#each projects as { name, href, line, year } (href)}
           <li class="grid grid-cols-[minmax(0,1fr)_72px] items-baseline gap-x-6 border-b py-4">
             <span>
-              <a class="link text-lg font-medium" {href}>{name}</a>
+              <a class="link text-lg font-medium" {href} target="_blank" rel="noreferrer">{name}</a>
               <span class="ml-3 text-muted-foreground">{line}</span>
             </span>
             <span class="mono text-right text-sm leading-6 text-muted-foreground">{year}</span>
