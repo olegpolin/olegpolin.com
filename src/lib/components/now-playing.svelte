@@ -46,7 +46,7 @@
 <svelte:document onvisibilitychange={refresh} />
 
 {#snippet eyebrow(text: string, live = false)}
-  <!-- The text truncates in its own span: an ellipsis never renders on a flex container's own text. -->
+  <!-- The text gets its own span: an ellipsis never renders on a flex container's bare text. -->
   <p class="mono flex items-center gap-2 text-label text-muted-foreground">
     {#if live}
       <span class="bars shrink-0" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -105,10 +105,11 @@
       </a>
     {:else if shown}
       <div class="flex items-center gap-5">{@render card(shown)}</div>
+    {:else if nowPlaying?.error}
+      <!-- Before `ready`: it stays true after an idle answer, even while every refresh fails. -->
+      {@render empty('Spotify is unavailable right now.')}
     {:else if nowPlaying?.ready}
       {@render empty('Nothing playing right now.')}
-    {:else if nowPlaying?.error}
-      {@render empty('Spotify is unavailable right now.')}
     {:else}
       <div class="flex items-center gap-5" aria-hidden="true">
         <Skeleton class="size-16 shrink-0" />

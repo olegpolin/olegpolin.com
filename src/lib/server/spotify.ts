@@ -63,7 +63,8 @@ let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
 /**
  * The last played track, whether history should still confirm it, when history was last asked,
- * and when a track was last seen playing (on Spotify's clock, to compare with `played_at`).
+ * and when a track was last seen playing. The clocks differ by seconds at most, far less than the
+ * lag between a play and history listing it, so the poll's own time is compared with `played_at`.
  */
 let recent: NowPlaying | null = null;
 let recentUnconfirmed = false;
@@ -155,13 +156,16 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   if (current?.currently_playing_type === 'track' && current.item) {
     // `timestamp` is when playback last changed (play, pause, skip), so it is the pause time of
     // a paused track but could be an hour back for one still playing.
-    const playedAt = current.is_playing ? Date.now() : current.timestamp || Date.now();
+    const now = Date.now();
+    const playedAt = current.is_playing ? now : current.timestamp || now;
     const value = normalise(current.item, current.is_playing, playedAt);
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
     recentUnconfirmed = true;
-    recentSeenAt = current.timestamp || 0; // missing means accept whatever history says
+    // Not `timestamp`: during autoplay that stays at the first play, and history listing an
+    // earlier track of the session would then win over this one.
+    recentSeenAt = now;
     return value;
   }
 
