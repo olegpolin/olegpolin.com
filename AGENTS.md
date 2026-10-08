@@ -14,6 +14,10 @@ Most of this tech stack had a recent major version, so your training data is lik
 - Use the **shadcn-svelte** skill whenever you add or change UI. The component source lives in `src/lib/components/ui` and is ours to change: add components with the CLI as needed and edit existing ones freely.
 - If a skill is missing, say so in your reply and ask the user to install it.
 
+## Cursor Cloud specific instructions
+
+`@sveltejs/kit` requires Node >= 22.17 and `.npmrc` sets `engine-strict`. The environment install puts Node 24.21.0 on `/opt/node` (matching GitHub Actions `node-version: lts/*`) and login shells prepend `/opt/node/bin`. The dev server listens on port 5173 (`npm run dev -- --host 0.0.0.0 --port 5173`). `npm run check` and `npm run build` are the verification commands; there is no test script. Resume compilation (`npm run resume:compile`) needs `typst` 0.15.1, which install places on `/usr/local/bin`. The site serves the committed PDF at `static/Oleg_Polin_Resume.pdf`.
+
 ## Git Commits & PRs
 
 - No AI attribution anywhere: no `Co-Authored-By` or "Generated with" lines in commits, no `ai/` or `agent/` branch prefixes, nothing about the tool in PR titles or descriptions. If a tool put you on a generated branch, rename it before the first commit. Describe the change, not what made it.
