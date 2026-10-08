@@ -1,8 +1,8 @@
 /*
   Spotify Web API client for the now-playing widget. Server only.
 
-  It needs SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET and SPOTIFY_REFRESH_TOKEN
-  (see src/env.ts). The first two come from the app at developer.spotify.com/dashboard.
+  It needs SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET and SPOTIFY_REFRESH_TOKEN. The first two
+  come from the app at developer.spotify.com/dashboard.
   Refresh tokens expire six months after authorizing, so repeat these steps twice a year,
   or whenever the log shows `invalid_grant`:
 
@@ -39,14 +39,11 @@ interface SpotifyTrack {
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API_URL = 'https://api.spotify.com/v1/me/player';
 const TIMEOUT_MS = 10_000;
-/** How long one result is shared, so Spotify is polled at most this often per isolate. */
+/** How long one result is shared, so Spotify is polled about this often per isolate. */
 const CACHE_MS = 15_000;
-/** Worst case for one poll: a token refresh and two player calls, each up to TIMEOUT_MS. */
-const POLL_MAX_MS = 3 * TIMEOUT_MS;
 
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
-let pollingSince = 0;
 
 function isConfigured() {
   return Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET && SPOTIFY_REFRESH_TOKEN);
@@ -111,8 +108,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     currently_playing_type: string;
     item: SpotifyTrack | null;
   }>('/currently-playing');
-  // Ads and podcasts come back with a null `item` today; the type check also covers
-  // the day Spotify returns episode objects, which have no album or artists.
+  // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
     return normalise(current.item, current.is_playing);
   }
@@ -123,34 +119,23 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 }
 
 /**
- * The track to show. The settled result is shared by every request in the isolate for
- * CACHE_MS. Once it is stale, the first request polls Spotify while the rest keep getting the
- * stale value until that poll lands, so a warm isolate makes one poll per window however many
- * visitors there are, and no request ever waits on another request's fetch (Workers cancels a
- * request's fetches when its client leaves). Concurrent requests on a cold isolate each poll
- * once; that is rare and small. A failed poll keeps the last track but stops claiming it is
- * still playing, and throws when there is nothing to fall back on so clients keep what they show.
+ * The track to show, cached for CACHE_MS per isolate. A failed poll keeps the last track but
+ * stops claiming it is still playing, and throws when there is no earlier result at all so a
+ * client keeps whatever it already shows.
  */
 export async function readNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
-  const started = Date.now();
-  if (result) {
-    const fresh = started - result.at < CACHE_MS;
-    const polling = started - pollingSince < POLL_MAX_MS;
-    if (fresh || polling) return result.value;
-  }
+  if (result && Date.now() - result.at < CACHE_MS) return result.value;
 
-  pollingSince = started;
+  const at = Date.now(); // the poll's start, so a client's next 15 s tick finds this stale
+  let value: NowPlaying | null;
   try {
-    const value = await fetchNowPlaying();
-    // A slower poll that started earlier must not overwrite a newer result.
-    if (!result || result.at < started) result = { value, at: started };
+    value = await fetchNowPlaying();
   } catch (error) {
     console.error('[spotify]', error);
-    if (!result?.value) throw error;
-    if (result.at < started) result = { value: { ...result.value, isPlaying: false }, at: started };
-  } finally {
-    if (pollingSince === started) pollingSince = 0;
+    if (!result) throw error;
+    value = result.value && { ...result.value, isPlaying: false };
   }
-  return result?.value ?? null;
+  result = { value, at };
+  return value;
 }

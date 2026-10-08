@@ -9,10 +9,9 @@
   import { getNowPlaying } from '#lib/spotify.remote.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
-  const REFRESH_MS = 15_000;
+  const REFRESH_MS = 15_000; // matches the server's cache window
 
-  // Browser only: touching the query during SSR would start a Spotify poll the page never
-  // waits for and seed the client with a track the server HTML doesn't show.
+  // Browser only, so SSR never starts or waits on a Spotify poll.
   const nowPlaying = browser ? getNowPlaying() : null;
 
   // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
@@ -58,7 +57,6 @@
       alt=""
       width="64"
       height="64"
-      loading="lazy"
       class="size-16 shrink-0 rounded-md bg-secondary"
     />
   {:else}
@@ -120,7 +118,6 @@
   .bars span {
     width: 2px;
     height: 100%;
-    transform: scaleY(0.4);
     transform-origin: bottom;
     background: currentColor;
     animation: bounce 1.1s ease-in-out infinite;
