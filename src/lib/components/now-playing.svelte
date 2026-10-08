@@ -25,7 +25,7 @@
   );
 
   // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
-  // so the card never flickers or blanks.
+  // so the card never blanks; at most it stops claiming the track is still playing.
   function refresh() {
     if (nowPlaying && !document.hidden) nowPlaying.refresh().catch(() => {});
   }
@@ -79,12 +79,12 @@
   </div>
 {/snippet}
 
-{#snippet empty()}
+{#snippet empty(text: string)}
   <div class="flex items-center gap-5">
     {@render glyph()}
     <div>
       {@render eyebrow('spotify')}
-      <p class="text-muted-foreground">Nothing playing right now.</p>
+      <p class="text-muted-foreground">{text}</p>
     </div>
   </div>
 {/snippet}
@@ -97,8 +97,10 @@
       </a>
     {:else if shown}
       <div class="flex items-center gap-5">{@render card(shown)}</div>
-    {:else if nowPlaying?.ready || nowPlaying?.error}
-      {@render empty()}
+    {:else if nowPlaying?.error}
+      {@render empty('Spotify is unavailable right now.')}
+    {:else if nowPlaying?.ready}
+      {@render empty('Nothing playing right now.')}
     {:else}
       <div class="flex items-center gap-5" aria-hidden="true">
         <Skeleton class="size-16 shrink-0" />

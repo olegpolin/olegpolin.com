@@ -137,6 +137,7 @@ function normalise(track: SpotifyTrack, isPlaying: boolean): NowPlaying {
 /** The current track, else the last played one, else null. */
 async function fetchNowPlaying(): Promise<NowPlaying | null> {
   const current = await api<{
+    timestamp: number;
     is_playing: boolean;
     currently_playing_type: string;
     item: SpotifyTrack | null;
@@ -147,7 +148,8 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
-    recentSeenAt = Date.now();
+    // Spotify's own clock, since it is compared with Spotify's `played_at` later.
+    recentSeenAt = current.timestamp || Date.now();
     return value;
   }
 
