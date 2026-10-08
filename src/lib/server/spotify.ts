@@ -53,6 +53,8 @@ let result: { value: NowPlaying | null; at: number } | null = null;
 let recent: { value: NowPlaying; at: number } | null = null;
 /** No Spotify calls until this time; set by a 429. */
 let blockedUntil = 0;
+/** When the latest poll started. A poll that left nothing to serve must not be retried per request. */
+let lastPoll = 0;
 
 function isConfigured() {
   return Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET && SPOTIFY_REFRESH_TOKEN);
@@ -94,7 +96,7 @@ async function api<T>(path: string): Promise<T | null> {
     // Retrying during a quota block only prolongs it, so stop polling for as long as told.
     const retryAfter = response.headers.get('retry-after');
     const seconds = retryAfter === null ? NaN : Number(retryAfter);
-    blockedUntil = Date.now() + (seconds >= 0 ? seconds * 1000 : DEFAULT_BACKOFF_MS);
+    blockedUntil = Date.now() + (seconds > 0 ? seconds * 1000 : DEFAULT_BACKOFF_MS);
   }
   if (!response.ok) {
     throw new Error(`Spotify ${path} failed: ${response.status} ${await response.text()}`);
@@ -130,8 +132,9 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     return value;
   }
 
-  // The last played track only changes when something plays, so ask for it rarely.
-  if (!recent || Date.now() - recent.at > RECENT_MS) {
+  // The last played track only changes when something plays, so ask for it rarely: when it is
+  // old, or right after playback stopped, since a short track may have come and gone unseen.
+  if (!recent || Date.now() - recent.at > RECENT_MS || result?.value?.isPlaying) {
     const played = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
     const track = played?.items[0]?.track;
     if (track) recent = { value: normalise(track, false), at: Date.now() };
@@ -151,15 +154,19 @@ function fallback(cause: unknown): NowPlaying {
 
 /**
  * The track to show, cached for CACHE_MS per isolate. A failed poll, or a 429 pause, keeps the
- * last track but stops claiming it is still playing, so a client never falls back to its empty
- * state while Spotify is merely unavailable.
+ * isolate's last track but stops claiming it is still playing. State lives in isolate memory,
+ * so a fresh isolate during a pause spends one probe and then has nothing to serve until the
+ * pause ends; a shared store would be the next step if that matters.
  */
 export async function readNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
-  if (result && Date.now() - result.at < CACHE_MS) return result.value;
-  if (Date.now() < blockedUntil) return fallback(new Error('Spotify polling is paused'));
-
   const at = Date.now(); // the poll's start, so a client's next tick finds this stale
+  if (result && at - result.at < CACHE_MS) return result.value;
+  if (at < blockedUntil || at - lastPoll < CACHE_MS) {
+    return fallback(new Error('Spotify polling is paused or was just attempted'));
+  }
+  lastPoll = at;
+
   let value: NowPlaying | null;
   try {
     value = await fetchNowPlaying();
