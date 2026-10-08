@@ -53,8 +53,9 @@ const MAX_PAUSE_MS = 24 * 60 * 60_000;
 
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
-/** The last played track. `at` is 0 when it was only seen playing and still needs confirming. */
-let recent: { value: NowPlaying; at: number } | null = null;
+/** The last played track, and when Spotify last confirmed it. */
+let recent: NowPlaying | null = null;
+let recentCheckedAt = 0;
 /** No Spotify calls before this time: one cache window after a poll starts, or a 429's pause. */
 let nextPollAt = 0;
 /** The poll in progress, shared by every request that arrives while it runs. */
@@ -97,7 +98,7 @@ async function api<T>(path: string): Promise<T | null> {
   if (response.status === 204) return null;
   if (response.status === 401) token = null; // revoked early; the next poll gets a fresh one
   if (!response.ok) {
-    const body = await response.text();
+    const body = await response.text().catch(() => ''); // a lost body must not lose the pause
     if (response.status === 429) pause(response.headers.get('retry-after'), body);
     throw new Error(`Spotify ${path} failed: ${response.status} ${body}`);
   }
@@ -139,17 +140,19 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     const value = normalise(current.item, current.is_playing);
     // Remember it as the last played, but unconfirmed: once playback stops, ask Spotify in case
     // a shorter track came and went between polls.
-    recent = { value: { ...value, isPlaying: false }, at: 0 };
+    recent = { ...value, isPlaying: false };
+    recentCheckedAt = 0;
     return value;
   }
 
   // The last played track only changes when something plays, so ask for it rarely.
-  if (!recent || Date.now() - recent.at > RECENT_MS) {
+  if (Date.now() - recentCheckedAt > RECENT_MS) {
     const played = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
+    recentCheckedAt = Date.now(); // an empty history is an answer too
     const track = played?.items[0]?.track;
-    if (track) recent = { value: normalise(track, false), at: Date.now() };
+    if (track) recent = normalise(track, false);
   }
-  return recent?.value ?? null;
+  return recent;
 }
 
 /**
@@ -158,7 +161,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
  * as a crash and which leaves a client showing whatever it already has.
  */
 function fallback(): NowPlaying {
-  const last = result?.value ?? recent?.value;
+  const last = result?.value ?? recent;
   if (!last) error(503, 'Spotify is unavailable');
   return { ...last, isPlaying: false };
 }
