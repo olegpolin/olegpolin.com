@@ -151,7 +151,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
     recentUnconfirmed = true;
-    recentSeenAt = current.timestamp || Date.now();
+    recentSeenAt = current.timestamp || 0; // Spotify's clock only; missing means accept history
     return value;
   }
 
