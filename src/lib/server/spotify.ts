@@ -8,13 +8,10 @@
 
   1. In the app's settings, add the redirect URI http://127.0.0.1:8888/callback and save.
   2. Open this URL, signed in as the account to show, and click Agree:
-     https://accounts.spotify.com/authorize?client_id=<CLIENT_ID>&response_type=code
-       &redirect_uri=http%3A%2F%2F127.0.0.1%3A8888%2Fcallback
-       &scope=user-read-currently-playing%20user-read-recently-played
+     https://accounts.spotify.com/authorize?client_id=<CLIENT_ID>&response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A8888%2Fcallback&scope=user-read-currently-playing%20user-read-recently-played
      The browser lands on an unreachable 127.0.0.1 page; copy the `code` from its address bar.
   3. Within a minute, exchange it:
-     curl -u "<CLIENT_ID>:<CLIENT_SECRET>" -d grant_type=authorization_code -d code=<CODE>
-       -d redirect_uri=http://127.0.0.1:8888/callback https://accounts.spotify.com/api/token
+     curl -u "<CLIENT_ID>:<CLIENT_SECRET>" -d grant_type=authorization_code -d code=<CODE> -d redirect_uri=http://127.0.0.1:8888/callback https://accounts.spotify.com/api/token
      Keep `refresh_token` from the response; `access_token` expires hourly and is fetched here.
 */
 import {
@@ -42,14 +39,11 @@ interface SpotifyTrack {
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API_URL = 'https://api.spotify.com/v1/me/player';
 const TIMEOUT_MS = 10_000;
-/** How long one result is shared, so Spotify is polled at most this often per isolate. */
+/** How long one result is shared, so Spotify is polled about this often per isolate. */
 const CACHE_MS = 15_000;
-/** Worst case for one poll: a token refresh and two player calls, each up to TIMEOUT_MS. */
-const POLL_MAX_MS = 3 * TIMEOUT_MS;
 
 let token: { value: string; expiresAt: number } | null = null;
-let last: NowPlaying | null = null;
-let result: { promise: Promise<NowPlaying | null>; expiresAt: number } | null = null;
+let result: { value: NowPlaying | null; at: number } | null = null;
 
 function isConfigured() {
   return Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET && SPOTIFY_REFRESH_TOKEN);
@@ -124,30 +118,20 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 }
 
 /**
- * The track to show. One poll is shared by every caller while it runs and for CACHE_MS after
- * it settles. A failed poll falls back to the last good track, marked as no longer playing,
- * so a Spotify hiccup never flashes the empty state and an outage never claims a stale track
- * is still on.
+ * The track to show. The settled result is shared by every request in the isolate for
+ * CACHE_MS; a request that finds it stale polls Spotify itself, so no in-flight promise is
+ * ever handed across requests (Workers cancels a request's fetches when its client leaves).
+ * A failed poll keeps the last track but stops claiming it is still playing.
  */
-export function getNowPlaying(): Promise<NowPlaying | null> {
-  if (!isConfigured()) return Promise.resolve(null);
-  if (!result || Date.now() > result.expiresAt) {
-    const entry = {
-      // Shared until the poll settles, but never beyond its worst case, so a poll that
-      // somehow never settles cannot block every later visitor.
-      expiresAt: Date.now() + POLL_MAX_MS,
-      promise: fetchNowPlaying()
-        .then((track) => {
-          if (result === entry) last = track; // a superseded slow poll must not win
-          return track;
-        })
-        .catch((error) => {
-          console.error('[spotify]', error);
-          return last && { ...last, isPlaying: false };
-        })
-        .finally(() => (entry.expiresAt = Date.now() + CACHE_MS))
-    };
-    result = entry;
+export async function getNowPlaying(): Promise<NowPlaying | null> {
+  if (!isConfigured()) return null;
+  if (result && Date.now() - result.at < CACHE_MS) return result.value;
+  try {
+    result = { value: await fetchNowPlaying(), at: Date.now() };
+  } catch (error) {
+    console.error('[spotify]', error);
+    const stale = result?.value;
+    result = { value: stale ? { ...stale, isPlaying: false } : null, at: Date.now() };
   }
-  return result.promise;
+  return result.value;
 }

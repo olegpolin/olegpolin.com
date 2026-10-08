@@ -3,7 +3,9 @@
   one played, else an empty state. Every state is a 68 px row so nothing shifts as it loads.
 -->
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { browser } from '$app/env';
+  import { Skeleton } from '#lib/components/ui/skeleton/index.ts';
   import { getNowPlaying } from '#lib/spotify.remote.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
@@ -20,6 +22,8 @@
   }
 
   $effect(() => {
+    // Coming back to the page reuses the cached query, so catch up instead of showing an old track.
+    if (untrack(() => nowPlaying?.ready)) refresh();
     const timer = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(timer);
   });
@@ -92,12 +96,12 @@
     {:else if nowPlaying?.ready || nowPlaying?.error}
       {@render empty()}
     {:else}
-      <div class="flex animate-pulse items-center gap-5" aria-hidden="true">
-        <span class="size-16 shrink-0 rounded-md bg-secondary"></span>
+      <div class="flex items-center gap-5" aria-hidden="true">
+        <Skeleton class="size-16 shrink-0" />
         <div class="flex flex-col gap-2">
-          <span class="h-3 w-20 rounded-sm bg-secondary"></span>
-          <span class="h-4 w-48 rounded-sm bg-secondary"></span>
-          <span class="h-4 w-32 rounded-sm bg-secondary"></span>
+          <Skeleton class="h-3 w-20" />
+          <Skeleton class="h-4 w-48" />
+          <Skeleton class="h-4 w-32" />
         </div>
       </div>
     {/if}
