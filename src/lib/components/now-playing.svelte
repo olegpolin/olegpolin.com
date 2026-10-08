@@ -1,6 +1,6 @@
 <!--
-  The live Spotify widget on the About page: the track playing right now, else the last
-  one played, else an empty state. Every state is a 68 px row so nothing shifts as it loads.
+  The live Spotify widget on the About page: the track playing right now, else the last one
+  played, else an empty or unavailable state. Every state is a 68 px row so nothing shifts.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -9,13 +9,21 @@
   import { getNowPlaying } from '#lib/spotify.remote.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
-  const REFRESH_MS = 15_000; // longer than the server's 12 s cache, so each tick gets fresh data
+  // Longer than the server's 55 s cache, so each tick gets fresh data. Kept slow because every
+  // tick can cost a Spotify call and Development Mode's quota is small.
+  const REFRESH_MS = 60_000;
 
   // Browser only, so SSR never starts or waits on a Spotify poll.
   const nowPlaying = browser ? getNowPlaying() : null;
 
-  // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
-  // so the card never flickers or blanks.
+  // A refresh keeps `current` until a new value arrives, and a failed one only sets `error`, so
+  // the card never blanks. While refreshes fail, stop claiming the track is still playing.
+  const shown = $derived(
+    nowPlaying?.current && nowPlaying.error
+      ? { ...nowPlaying.current, isPlaying: false }
+      : nowPlaying?.current
+  );
+
   function refresh() {
     if (nowPlaying && !document.hidden) nowPlaying.refresh().catch(() => {});
   }
@@ -69,31 +77,28 @@
   </div>
 {/snippet}
 
-{#snippet empty()}
+{#snippet empty(text: string)}
   <div class="flex items-center gap-5">
     {@render glyph()}
     <div>
       {@render eyebrow('spotify')}
-      <p class="text-muted-foreground">Nothing playing right now.</p>
+      <p class="text-muted-foreground">{text}</p>
     </div>
   </div>
 {/snippet}
 
 <section class="px-4 py-16" aria-label="Spotify">
   <div class="mx-auto min-h-17 max-w-170">
-    {#if nowPlaying?.current?.url}
-      <a
-        href={nowPlaying.current.url}
-        target="_blank"
-        rel="noreferrer"
-        class="group/track flex items-center gap-5"
-      >
-        {@render card(nowPlaying.current)}
+    {#if shown?.url}
+      <a href={shown.url} target="_blank" rel="noreferrer" class="group/track flex items-center gap-5">
+        {@render card(shown)}
       </a>
-    {:else if nowPlaying?.current}
-      <div class="flex items-center gap-5">{@render card(nowPlaying.current)}</div>
-    {:else if nowPlaying?.ready || nowPlaying?.error}
-      {@render empty()}
+    {:else if shown}
+      <div class="flex items-center gap-5">{@render card(shown)}</div>
+    {:else if nowPlaying?.ready}
+      {@render empty('Nothing playing right now.')}
+    {:else if nowPlaying?.error}
+      {@render empty('Spotify is unavailable right now.')}
     {:else}
       <div class="flex items-center gap-5" aria-hidden="true">
         <Skeleton class="size-16 shrink-0" />
