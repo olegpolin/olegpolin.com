@@ -56,8 +56,9 @@ const MAX_PAUSE_MS = 24 * 60 * 60_000;
 
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
-/** The last played track, and when Spotify was last asked for it. 0 forces a lookup when idle. */
+/** The last played track, when a track was last seen playing, and when history was last asked. */
 let recent: NowPlaying | null = null;
+let recentSeenAt = 0;
 let recentCheckedAt = 0;
 /** No Spotify calls before this time: one cache window after a poll starts, or a 429's pause. */
 let nextPollAt = 0;
@@ -143,21 +144,24 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
     const value = normalise(current.item, current.is_playing);
-    // Remember it as the last played, but unconfirmed: once playback stops, ask Spotify in case
-    // a shorter track came and went between polls.
+    // Remember it as the last played. Once playback stops, history is asked once more in case a
+    // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
-    recentCheckedAt = 0;
+    recentSeenAt = Date.now();
     return value;
   }
 
   // The last played track only changes when something plays, so ask for it rarely.
-  if (Date.now() - recentCheckedAt > RECENT_MS) {
+  if (Date.now() - recentCheckedAt > RECENT_MS || recentSeenAt > recentCheckedAt) {
     // A failed lookup waits too, but only once there is a track to show in the meantime.
     if (recent) recentCheckedAt = Date.now();
-    const played = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
+    const played = await api<{ items: { track: SpotifyTrack; played_at: string }[] }>(
+      '/recently-played?limit=1'
+    );
     recentCheckedAt = Date.now(); // an empty history is an answer too
-    const track = played?.items[0]?.track;
-    if (track) recent = normalise(track, false);
+    const item = played?.items[0];
+    // History lags and omits very short plays, so never move back behind a track seen playing.
+    if (item && Date.parse(item.played_at) > recentSeenAt) recent = normalise(item.track, false);
   }
   return recent;
 }
