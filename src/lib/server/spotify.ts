@@ -136,6 +136,7 @@ export async function readNowPlaying(): Promise<NowPlaying | null> {
     if (!result) throw error;
     value = result.value && { ...result.value, isPlaying: false };
   }
-  result = { value, at };
-  return value;
+  // A slower poll that started earlier must not overwrite a newer result.
+  if (!result || result.at < at) result = { value, at };
+  return result.value;
 }
