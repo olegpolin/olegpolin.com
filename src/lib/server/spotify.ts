@@ -107,11 +107,16 @@ function normalise(track: SpotifyTrack, isPlaying: boolean): NowPlaying {
 
 /** The current track, else the last played one, else null. */
 async function fetchNowPlaying(): Promise<NowPlaying | null> {
-  const current = await api<{ is_playing: boolean; item: SpotifyTrack | null }>(
-    '/currently-playing'
-  );
-  // `item` is null for ads and podcasts; treat those like silence.
-  if (current?.item) return normalise(current.item, current.is_playing);
+  const current = await api<{
+    is_playing: boolean;
+    currently_playing_type: string;
+    item: SpotifyTrack | null;
+  }>('/currently-playing');
+  // Ads and podcasts come back with a null `item` today; the type check also covers
+  // the day Spotify returns episode objects, which have no album or artists.
+  if (current?.currently_playing_type === 'track' && current.item) {
+    return normalise(current.item, current.is_playing);
+  }
 
   const recent = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
   const track = recent?.items[0]?.track;

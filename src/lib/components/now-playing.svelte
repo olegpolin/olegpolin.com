@@ -3,16 +3,20 @@
   one played, else an empty state. Every state is a 68 px row so nothing shifts as it loads.
 -->
 <script lang="ts">
+  import { browser } from '$app/env';
   import { getNowPlaying } from '#lib/spotify.remote.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
   const REFRESH_MS = 15_000;
-  const nowPlaying = getNowPlaying();
+
+  // Browser only: touching the query during SSR would start a Spotify poll the page never
+  // waits for and seed the client with a track the server HTML doesn't show.
+  const nowPlaying = browser ? getNowPlaying() : null;
 
   // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
   // so the card never flickers or blanks.
   function refresh() {
-    if (!document.hidden) nowPlaying.refresh().catch(() => {});
+    if (!document.hidden) nowPlaying?.refresh().catch(() => {});
   }
 
   $effect(() => {
@@ -74,7 +78,7 @@
 
 <section class="px-4 py-16" aria-label="Now playing">
   <div class="mx-auto min-h-17 max-w-170">
-    {#if nowPlaying.current?.url}
+    {#if nowPlaying?.current?.url}
       <a
         href={nowPlaying.current.url}
         target="_blank"
@@ -83,9 +87,9 @@
       >
         {@render card(nowPlaying.current)}
       </a>
-    {:else if nowPlaying.current}
+    {:else if nowPlaying?.current}
       <div class="flex items-center gap-5">{@render card(nowPlaying.current)}</div>
-    {:else if nowPlaying.ready || nowPlaying.error}
+    {:else if nowPlaying?.ready || nowPlaying?.error}
       {@render empty()}
     {:else}
       <div class="flex animate-pulse items-center gap-5" aria-hidden="true">
