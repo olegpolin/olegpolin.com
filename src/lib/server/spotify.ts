@@ -42,8 +42,11 @@ interface SpotifyTrack {
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API_URL = 'https://api.spotify.com/v1/me/player';
 const TIMEOUT_MS = 10_000;
-/** How long one result is shared. Under the widget's 60 s refresh so every tick re-polls. */
-const CACHE_MS = 30_000;
+/**
+ * How long one result is shared. Just under the widget's 60 s refresh, so one viewer's every
+ * tick re-polls while viewers whose ticks are staggered share one poll a minute.
+ */
+const CACHE_MS = 55_000;
 /** How long the last played track is reused before asking Spotify again. */
 const RECENT_MS = 15 * 60_000;
 /** The least a quota 429 pauses polling, and the pause when Retry-After is missing. */
@@ -149,8 +152,8 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 
   // The last played track only changes when something plays, so ask for it rarely.
   if (Date.now() - recentCheckedAt > RECENT_MS) {
+    recentCheckedAt = Date.now(); // stamped before asking, so a failed lookup waits too
     const played = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
-    recentCheckedAt = Date.now(); // an empty history is an answer too
     const track = played?.items[0]?.track;
     if (track) recent = normalise(track, false);
   }
@@ -158,14 +161,13 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 }
 
 /**
- * What to serve while Spotify is unavailable: the last known track, no longer claimed to be
- * playing. With nothing known yet it fails as an expected error, which SvelteKit does not log
- * as a crash and which leaves a client showing whatever it already has.
+ * What to serve while Spotify is unavailable: the last known answer, with any track no longer
+ * claimed to be playing. With no answer yet it fails as an expected error, which SvelteKit does
+ * not log as a crash and which leaves a client showing whatever it already has.
  */
-function fallback(): NowPlaying {
-  const last = result?.value;
-  if (!last) error(503, 'Spotify is unavailable');
-  return { ...last, isPlaying: false };
+function fallback(): NowPlaying | null {
+  if (!result) error(503, 'Spotify is unavailable');
+  return result.value && { ...result.value, isPlaying: false };
 }
 
 /**
