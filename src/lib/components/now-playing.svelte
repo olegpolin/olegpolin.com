@@ -1,6 +1,6 @@
 <!--
-  The live Spotify widget on the About page: the track playing right now, else the last
-  one played, else an empty state. Every state is a 68 px row so nothing shifts as it loads.
+  The live Spotify widget on the About page: the track playing right now, else the last one
+  played, else an empty or unavailable state. Every state is a 68 px row so nothing shifts.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -16,16 +16,14 @@
   // Browser only, so SSR never starts or waits on a Spotify poll.
   const nowPlaying = browser ? getNowPlaying() : null;
 
-  // A failed refresh keeps the last value, which may still claim to be playing. Until a refresh
-  // succeeds, show it as the last played instead.
+  // A refresh keeps `current` until a new value arrives, and a failed one only sets `error`, so
+  // the card never blanks. While refreshes fail, stop claiming the track is still playing.
   const shown = $derived(
     nowPlaying?.current && nowPlaying.error
       ? { ...nowPlaying.current, isPlaying: false }
       : nowPlaying?.current
   );
 
-  // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
-  // so the card never blanks; at most it stops claiming the track is still playing.
   function refresh() {
     if (nowPlaying && !document.hidden) nowPlaying.refresh().catch(() => {});
   }

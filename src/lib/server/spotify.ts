@@ -56,11 +56,13 @@ const MAX_PAUSE_MS = 24 * 60 * 60_000;
 
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
-/** The last played track, whether history should confirm it, and when history was last asked. */
+/**
+ * The last played track, whether history should still confirm it, when history was last asked,
+ * and when a track was last seen playing (on Spotify's clock, to compare with `played_at`).
+ */
 let recent: NowPlaying | null = null;
 let recentUnconfirmed = false;
 let recentCheckedAt = 0;
-/** When a track was last seen playing, on Spotify's clock for comparing with `played_at`. */
 let recentSeenAt = 0;
 /** No Spotify calls before this time: one cache window after a poll starts, or a 429's pause. */
 let nextPollAt = 0;
@@ -84,11 +86,7 @@ async function fetchToken() {
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS)
   });
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    if (response.status === 429) pause(response.headers.get('retry-after'), body);
-    throw new Error(`Spotify token refresh failed: ${response.status} ${body}`);
-  }
+  if (!response.ok) await fail(response, 'token refresh');
 
   const { access_token, expires_in } = (await response.json()) as {
     access_token: string;
@@ -105,12 +103,15 @@ async function api<T>(path: string): Promise<T | null> {
   });
   if (response.status === 204) return null;
   if (response.status === 401) token = null; // revoked early; the next poll gets a fresh one
-  if (!response.ok) {
-    const body = await response.text().catch(() => ''); // a lost body must not lose the pause
-    if (response.status === 429) pause(response.headers.get('retry-after'), body);
-    throw new Error(`Spotify ${path} failed: ${response.status} ${body}`);
-  }
+  if (!response.ok) await fail(response, path);
   return (await response.json()) as T;
+}
+
+/** Throws for a failed response, after honouring a 429's Retry-After. */
+async function fail(response: Response, what: string): Promise<never> {
+  const body = await response.text().catch(() => ''); // a lost body must not lose the pause
+  if (response.status === 429) pause(response.headers.get('retry-after'), body);
+  throw new Error(`Spotify ${what} failed: ${response.status} ${body}`);
 }
 
 /** Stop polling for as long as a 429 says. Retrying during a quota block only prolongs it. */
@@ -151,7 +152,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
     recentUnconfirmed = true;
-    recentSeenAt = current.timestamp || 0; // Spotify's clock only; missing means accept history
+    recentSeenAt = current.timestamp || 0; // missing means accept whatever history says
     return value;
   }
 
