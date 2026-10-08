@@ -3,7 +3,8 @@
 
   It needs SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET and SPOTIFY_REFRESH_TOKEN
   (see src/env.ts). The first two come from the app at developer.spotify.com/dashboard.
-  The refresh token is a one-time step, repeated only if Spotify revokes it:
+  Refresh tokens expire six months after authorizing, so repeat these steps twice a year,
+  or whenever the log shows `invalid_grant`:
 
   1. In the app's settings, add the redirect URI http://127.0.0.1:8888/callback and save.
   2. Open this URL, signed in as the account to show, and click Agree:
@@ -48,9 +49,9 @@ const POLL_MAX_MS = 3 * TIMEOUT_MS;
 
 let token: { value: string; expiresAt: number } | null = null;
 let last: NowPlaying | null = null;
-let result: { promise: Promise<NowPlaying | null>; at: number } | null = null;
+let result: { promise: Promise<NowPlaying | null>; expiresAt: number } | null = null;
 
-export function isConfigured() {
+function isConfigured() {
   return Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET && SPOTIFY_REFRESH_TOKEN);
 }
 
@@ -67,7 +68,9 @@ async function fetchToken() {
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS)
   });
-  if (!response.ok) throw new Error(`Spotify token refresh failed: ${response.status}`);
+  if (!response.ok) {
+    throw new Error(`Spotify token refresh failed: ${response.status} ${await response.text()}`);
+  }
 
   const { access_token, expires_in } = (await response.json()) as {
     access_token: string;
@@ -123,18 +126,21 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
  */
 export function getNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return Promise.resolve(null);
-  if (!result || Date.now() - result.at > CACHE_MS) {
+  if (!result || Date.now() > result.expiresAt) {
     const entry = {
-      // Counts as fresh until the poll settles, but never beyond its worst case, so a poll
-      // that somehow never settles cannot block every later visitor.
-      at: Date.now() + POLL_MAX_MS - CACHE_MS,
+      // Shared until the poll settles, but never beyond its worst case, so a poll that
+      // somehow never settles cannot block every later visitor.
+      expiresAt: Date.now() + POLL_MAX_MS,
       promise: fetchNowPlaying()
-        .then((track) => (last = track))
+        .then((track) => {
+          if (result === entry) last = track; // a superseded slow poll must not win
+          return track;
+        })
         .catch((error) => {
           console.error('[spotify]', error);
           return last && { ...last, isPlaying: false };
         })
-        .finally(() => (entry.at = Date.now()))
+        .finally(() => (entry.expiresAt = Date.now() + CACHE_MS))
     };
     result = entry;
   }

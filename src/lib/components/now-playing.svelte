@@ -7,20 +7,12 @@
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
   const REFRESH_MS = 15_000;
+  const nowPlaying = getNowPlaying();
 
-  // Set when the boundary fails; the next successful refresh calls it so the widget recovers.
-  let reset: (() => void) | null = null;
-
-  // `refresh()` keeps the current track until the new one arrives, so updates never flicker.
+  // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
+  // so the card never flickers or blanks.
   function refresh() {
-    if (document.hidden) return;
-    getNowPlaying()
-      .refresh()
-      .then(() => {
-        reset?.();
-        reset = null;
-      })
-      .catch(() => {});
+    if (!document.hidden) nowPlaying.refresh().catch(() => {});
   }
 
   $effect(() => {
@@ -82,38 +74,29 @@
 
 <section class="px-4 py-16" aria-label="Now playing">
   <div class="mx-auto min-h-17 max-w-170">
-    <svelte:boundary onerror={(_, r) => (reset = r)}>
-      {@const track = await getNowPlaying()}
-      {#if track?.url}
-        <a
-          href={track.url}
-          target="_blank"
-          rel="noreferrer"
-          class="group/track flex items-center gap-5"
-        >
-          {@render card(track)}
-        </a>
-      {:else if track}
-        <div class="flex items-center gap-5">{@render card(track)}</div>
-      {:else}
-        {@render empty()}
-      {/if}
-
-      {#snippet pending()}
-        <div class="flex animate-pulse items-center gap-5" aria-hidden="true">
-          <span class="size-16 shrink-0 rounded-md bg-secondary"></span>
-          <div class="flex flex-col gap-2">
-            <span class="h-3 w-20 rounded-sm bg-secondary"></span>
-            <span class="h-4 w-48 rounded-sm bg-secondary"></span>
-            <span class="h-4 w-32 rounded-sm bg-secondary"></span>
-          </div>
+    {#if nowPlaying.current?.url}
+      <a
+        href={nowPlaying.current.url}
+        target="_blank"
+        rel="noreferrer"
+        class="group/track flex items-center gap-5"
+      >
+        {@render card(nowPlaying.current)}
+      </a>
+    {:else if nowPlaying.current}
+      <div class="flex items-center gap-5">{@render card(nowPlaying.current)}</div>
+    {:else if nowPlaying.ready || nowPlaying.error}
+      {@render empty()}
+    {:else}
+      <div class="flex animate-pulse items-center gap-5" aria-hidden="true">
+        <span class="size-16 shrink-0 rounded-md bg-secondary"></span>
+        <div class="flex flex-col gap-2">
+          <span class="h-3 w-20 rounded-sm bg-secondary"></span>
+          <span class="h-4 w-48 rounded-sm bg-secondary"></span>
+          <span class="h-4 w-32 rounded-sm bg-secondary"></span>
         </div>
-      {/snippet}
-
-      {#snippet failed()}
-        {@render empty()}
-      {/snippet}
-    </svelte:boundary>
+      </div>
+    {/if}
   </div>
 </section>
 
