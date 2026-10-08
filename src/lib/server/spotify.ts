@@ -53,7 +53,11 @@ let result: { value: NowPlaying | null; at: number } | null = null;
 let recent: { value: NowPlaying; at: number } | null = null;
 /** No Spotify calls until this time; set by a 429. */
 let blockedUntil = 0;
-/** When the latest poll started. A poll that left nothing to serve must not be retried per request. */
+/**
+ * When the latest poll started. A poll that left nothing to serve must not be retried per
+ * request. This also keeps polls sequential within an isolate, which the caches rely on: a poll
+ * is at most three fetches of TIMEOUT_MS each, so it always finishes within CACHE_MS.
+ */
 let lastPoll = 0;
 
 function isConfigured() {
@@ -96,7 +100,8 @@ async function api<T>(path: string): Promise<T | null> {
     // Retrying during a quota block only prolongs it, so stop polling for as long as told.
     const retryAfter = response.headers.get('retry-after');
     const seconds = retryAfter === null ? NaN : Number(retryAfter);
-    blockedUntil = Date.now() + (seconds > 0 ? seconds * 1000 : DEFAULT_BACKOFF_MS);
+    const until = Date.now() + (seconds > 0 ? seconds * 1000 : DEFAULT_BACKOFF_MS);
+    blockedUntil = Math.max(blockedUntil, until); // never shorten a pause already in force
   }
   if (!response.ok) {
     throw new Error(`Spotify ${path} failed: ${response.status} ${await response.text()}`);
