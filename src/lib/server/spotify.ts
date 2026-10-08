@@ -26,7 +26,6 @@ export interface NowPlaying {
   isPlaying: boolean;
   title: string;
   artists: string;
-  album: string;
   image: string | null;
   /** Null for local files, which Spotify has no page for. */
   url: string | null;
@@ -35,7 +34,7 @@ export interface NowPlaying {
 interface SpotifyTrack {
   name: string;
   artists: { name: string }[];
-  album: { name: string; images: { url: string; width: number | null }[] };
+  album: { images: { url: string; width: number | null }[] };
   external_urls: { spotify?: string };
 }
 
@@ -44,8 +43,11 @@ const API_URL = 'https://api.spotify.com/v1/me/player';
 const TIMEOUT_MS = 10_000;
 /** How long one result is shared, so Spotify is polled at most this often per isolate. */
 const CACHE_MS = 15_000;
+/** Worst case for one poll: a token refresh and two player calls, each up to TIMEOUT_MS. */
+const POLL_MAX_MS = 3 * TIMEOUT_MS;
 
 let token: { value: string; expiresAt: number } | null = null;
+let last: NowPlaying | null = null;
 let result: { promise: Promise<NowPlaying | null>; at: number } | null = null;
 
 export function isConfigured() {
@@ -95,7 +97,6 @@ function normalise(track: SpotifyTrack, isPlaying: boolean): NowPlaying {
     isPlaying,
     title: track.name,
     artists: track.artists.map((a) => a.name).join(', '),
-    album: track.album.name,
     image: images[0]?.url ?? null,
     url: track.external_urls.spotify ?? null
   };
@@ -110,24 +111,28 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   if (current?.item) return normalise(current.item, current.is_playing);
 
   const recent = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
-  const last = recent?.items[0]?.track;
-  return last ? normalise(last, false) : null;
+  const track = recent?.items[0]?.track;
+  return track ? normalise(track, false) : null;
 }
 
 /**
- * The track to show. One result is shared by every caller until CACHE_MS after it settled,
- * and a failed poll keeps the previous one, so Spotify hiccups never flash the empty state.
+ * The track to show. One poll is shared by every caller while it runs and for CACHE_MS after
+ * it settles. A failed poll falls back to the last good track, marked as no longer playing,
+ * so a Spotify hiccup never flashes the empty state and an outage never claims a stale track
+ * is still on.
  */
 export function getNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return Promise.resolve(null);
   if (!result || Date.now() - result.at > CACHE_MS) {
-    const previous = result?.promise ?? Promise.resolve(null);
     const entry = {
-      at: Infinity, // reused by everyone while in flight
+      // Counts as fresh until the poll settles, but never beyond its worst case, so a poll
+      // that somehow never settles cannot block every later visitor.
+      at: Date.now() + POLL_MAX_MS - CACHE_MS,
       promise: fetchNowPlaying()
+        .then((track) => (last = track))
         .catch((error) => {
           console.error('[spotify]', error);
-          return previous;
+          return last && { ...last, isPlaying: false };
         })
         .finally(() => (entry.at = Date.now()))
     };

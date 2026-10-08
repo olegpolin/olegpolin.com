@@ -8,18 +8,19 @@
 
   const REFRESH_MS = 15_000;
 
-  // Set when the boundary fails, so the next tick retries instead of leaving it failed for good.
+  // Set when the boundary fails; the next successful refresh calls it so the widget recovers.
   let reset: (() => void) | null = null;
 
   // `refresh()` keeps the current track until the new one arrives, so updates never flicker.
   function refresh() {
     if (document.hidden) return;
-    if (reset) {
-      reset();
-      reset = null;
-    } else {
-      getNowPlaying().refresh().catch(() => {});
-    }
+    getNowPlaying()
+      .refresh()
+      .then(() => {
+        reset?.();
+        reset = null;
+      })
+      .catch(() => {});
   }
 
   $effect(() => {
