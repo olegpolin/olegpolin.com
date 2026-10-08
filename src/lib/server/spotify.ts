@@ -56,7 +56,7 @@ const MAX_PAUSE_MS = 24 * 60 * 60_000;
 
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
-/** The last played track, and when Spotify last confirmed it. */
+/** The last played track, and when Spotify was last asked for it. 0 forces a lookup when idle. */
 let recent: NowPlaying | null = null;
 let recentCheckedAt = 0;
 /** No Spotify calls before this time: one cache window after a poll starts, or a 429's pause. */
@@ -152,8 +152,10 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 
   // The last played track only changes when something plays, so ask for it rarely.
   if (Date.now() - recentCheckedAt > RECENT_MS) {
-    recentCheckedAt = Date.now(); // stamped before asking, so a failed lookup waits too
+    // A failed lookup waits too, but only once there is a track to show in the meantime.
+    if (recent) recentCheckedAt = Date.now();
     const played = await api<{ items: { track: SpotifyTrack }[] }>('/recently-played?limit=1');
+    recentCheckedAt = Date.now(); // an empty history is an answer too
     const track = played?.items[0]?.track;
     if (track) recent = normalise(track, false);
   }
