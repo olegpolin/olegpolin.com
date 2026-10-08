@@ -1,12 +1,19 @@
 import { getRequestEvent, query } from '$app/server';
-import { fetchNowPlaying, isConfigured, type NowPlaying } from '#lib/server/spotify.ts';
+import { getNowPlaying as poll, isConfigured, type NowPlaying } from '#lib/server/spotify.ts';
 
 const POLL_MS = 15_000;
 
+/** Resolves after `ms`, or as soon as `signal` aborts, leaving no listener behind. */
 function sleep(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener('abort', () => (clearTimeout(timer), resolve()), { once: true });
+    if (signal.aborted) return resolve();
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener('abort', done);
   });
 }
 
@@ -22,7 +29,7 @@ export const getNowPlaying = query.live(async function* (): AsyncGenerator<NowPl
 
   let previous: string | undefined;
   while (!signal.aborted) {
-    const track = await fetchNowPlaying(signal);
+    const track = await poll();
     const serialised = JSON.stringify(track);
     if (serialised !== previous) {
       previous = serialised;

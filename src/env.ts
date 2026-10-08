@@ -14,7 +14,7 @@ export const variables = defineEnvVars({
     schema: optional
   },
   SPOTIFY_REFRESH_TOKEN: {
-    description: 'Refresh token for the Spotify account whose playback is shown (see README)',
+    description: 'Refresh token for the Spotify account whose playback is shown (see src/lib/server/spotify.ts)',
     schema: optional
   }
 });

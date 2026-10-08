@@ -4,6 +4,7 @@
 -->
 <script lang="ts">
   import { getNowPlaying } from '#lib/spotify.remote.ts';
+  import type { NowPlaying } from '#lib/server/spotify.ts';
 </script>
 
 {#snippet eyebrow(text: string, live = false)}
@@ -25,6 +26,26 @@
   </span>
 {/snippet}
 
+{#snippet card(track: NowPlaying)}
+  {#if track.image}
+    <img
+      src={track.image}
+      alt=""
+      width="64"
+      height="64"
+      loading="lazy"
+      class="size-16 shrink-0 rounded-md bg-secondary"
+    />
+  {:else}
+    {@render glyph()}
+  {/if}
+  <div class="min-w-0">
+    {@render eyebrow(track.isPlaying ? 'now playing' : 'last played', track.isPlaying)}
+    <p class="truncate font-medium underline-offset-4 group-hover/track:underline">{track.title}</p>
+    <p class="truncate text-muted-foreground">{track.artists}</p>
+  </div>
+{/snippet}
+
 {#snippet empty()}
   <div class="flex items-center gap-5">
     {@render glyph()}
@@ -39,7 +60,7 @@
   <div class="mx-auto max-w-170">
     <svelte:boundary>
       {@const track = await getNowPlaying()}
-      {#if track}
+      {#if track?.url}
         <a
           href={track.url}
           target="_blank"
@@ -47,26 +68,10 @@
           class="group/track flex items-center gap-5"
           aria-label="{track.title} by {track.artists} on Spotify"
         >
-          {#if track.image}
-            <img
-              src={track.image}
-              alt=""
-              width="64"
-              height="64"
-              loading="lazy"
-              class="size-16 shrink-0 rounded-md bg-secondary"
-            />
-          {:else}
-            {@render glyph()}
-          {/if}
-          <div class="min-w-0">
-            {@render eyebrow(track.isPlaying ? 'now playing' : 'last played', track.isPlaying)}
-            <p class="truncate font-medium underline-offset-4 group-hover/track:underline">
-              {track.title}
-            </p>
-            <p class="truncate text-muted-foreground">{track.artists}</p>
-          </div>
+          {@render card(track)}
         </a>
+      {:else if track}
+        <div class="flex items-center gap-5">{@render card(track)}</div>
       {:else}
         {@render empty()}
       {/if}
