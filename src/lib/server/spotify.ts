@@ -81,10 +81,8 @@ async function api<T>(path: string): Promise<T | null> {
     signal: AbortSignal.timeout(TIMEOUT_MS)
   });
   if (response.status === 204) return null;
-  if (!response.ok) {
-    token = null; // in case Spotify revoked it; the next poll gets a fresh one
-    throw new Error(`Spotify ${path} failed: ${response.status}`);
-  }
+  if (response.status === 401) token = null; // revoked early; the next poll gets a fresh one
+  if (!response.ok) throw new Error(`Spotify ${path} failed: ${response.status}`);
   return (await response.json()) as T;
 }
 
@@ -117,20 +115,23 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 }
 
 /**
- * The track to show. One result is shared by every caller for CACHE_MS, and a failed
- * poll keeps the previous one, so Spotify hiccups never flash the empty state.
+ * The track to show. One result is shared by every caller until CACHE_MS after it settled,
+ * and a failed poll keeps the previous one, so Spotify hiccups never flash the empty state.
  */
 export function getNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return Promise.resolve(null);
   if (!result || Date.now() - result.at > CACHE_MS) {
     const previous = result?.promise ?? Promise.resolve(null);
-    result = {
-      at: Date.now(),
-      promise: fetchNowPlaying().catch((error) => {
-        console.error('[spotify]', error);
-        return previous;
-      })
+    const entry = {
+      at: Infinity, // reused by everyone while in flight
+      promise: fetchNowPlaying()
+        .catch((error) => {
+          console.error('[spotify]', error);
+          return previous;
+        })
+        .finally(() => (entry.at = Date.now()))
     };
+    result = entry;
   }
   return result.promise;
 }

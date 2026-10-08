@@ -1,6 +1,6 @@
 <!--
   The live Spotify widget on the About page: the track playing right now, else the last
-  one played, else an empty state. Every state is a 64 px row so nothing shifts as it loads.
+  one played, else an empty state. Every state is a 68 px row so nothing shifts as it loads.
 -->
 <script lang="ts">
   import { getNowPlaying } from '#lib/spotify.remote.ts';
@@ -8,9 +8,18 @@
 
   const REFRESH_MS = 15_000;
 
+  // Set when the boundary fails, so the next tick retries instead of leaving it failed for good.
+  let reset: (() => void) | null = null;
+
   // `refresh()` keeps the current track until the new one arrives, so updates never flicker.
   function refresh() {
-    if (!document.hidden) getNowPlaying().refresh().catch(() => {});
+    if (document.hidden) return;
+    if (reset) {
+      reset();
+      reset = null;
+    } else {
+      getNowPlaying().refresh().catch(() => {});
+    }
   }
 
   $effect(() => {
@@ -71,8 +80,8 @@
 {/snippet}
 
 <section class="px-4 py-16" aria-label="Now playing">
-  <div class="mx-auto max-w-170">
-    <svelte:boundary>
+  <div class="mx-auto min-h-17 max-w-170">
+    <svelte:boundary onerror={(_, r) => (reset = r)}>
       {@const track = await getNowPlaying()}
       {#if track?.url}
         <a
@@ -80,7 +89,6 @@
           target="_blank"
           rel="noreferrer"
           class="group/track flex items-center gap-5"
-          aria-label="{track.title} by {track.artists} on Spotify"
         >
           {@render card(track)}
         </a>
