@@ -39,11 +39,14 @@ interface SpotifyTrack {
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API_URL = 'https://api.spotify.com/v1/me/player';
 const TIMEOUT_MS = 10_000;
-/** How long one result is shared, so Spotify is polled about this often per isolate. */
+/** How long one result is shared, so Spotify is polled at most this often per isolate. */
 const CACHE_MS = 15_000;
+/** Worst case for one poll: a token refresh and two player calls, each up to TIMEOUT_MS. */
+const POLL_MAX_MS = 3 * TIMEOUT_MS;
 
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
+let pollingSince = 0;
 
 function isConfigured() {
   return Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET && SPOTIFY_REFRESH_TOKEN);
@@ -81,7 +84,9 @@ async function api<T>(path: string): Promise<T | null> {
   });
   if (response.status === 204) return null;
   if (response.status === 401) token = null; // revoked early; the next poll gets a fresh one
-  if (!response.ok) throw new Error(`Spotify ${path} failed: ${response.status}`);
+  if (!response.ok) {
+    throw new Error(`Spotify ${path} failed: ${response.status} ${await response.text()}`);
+  }
   return (await response.json()) as T;
 }
 
@@ -119,19 +124,32 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 
 /**
  * The track to show. The settled result is shared by every request in the isolate for
- * CACHE_MS; a request that finds it stale polls Spotify itself, so no in-flight promise is
- * ever handed across requests (Workers cancels a request's fetches when its client leaves).
- * A failed poll keeps the last track but stops claiming it is still playing.
+ * CACHE_MS. Once it is stale, the first request polls Spotify while the rest keep getting the
+ * stale value until that poll lands, so Spotify sees one poll per window however many visitors
+ * there are, and no request ever waits on another request's fetch (Workers cancels a request's
+ * fetches when its client leaves). A failed poll keeps the last track but stops claiming it is
+ * still playing.
  */
 export async function getNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
-  if (result && Date.now() - result.at < CACHE_MS) return result.value;
+  const started = Date.now();
+  if (result) {
+    const fresh = started - result.at < CACHE_MS;
+    const polling = started - pollingSince < POLL_MAX_MS;
+    if (fresh || polling) return result.value;
+  }
+
+  pollingSince = started;
+  let value: NowPlaying | null;
   try {
-    result = { value: await fetchNowPlaying(), at: Date.now() };
+    value = await fetchNowPlaying();
   } catch (error) {
     console.error('[spotify]', error);
     const stale = result?.value;
-    result = { value: stale ? { ...stale, isPlaying: false } : null, at: Date.now() };
+    value = stale ? { ...stale, isPlaying: false } : null;
   }
+  // A slow poll that started earlier must not overwrite a newer result.
+  if (!result || result.at < started) result = { value, at: Date.now() };
+  if (pollingSince === started) pollingSince = 0;
   return result.value;
 }

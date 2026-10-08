@@ -18,12 +18,12 @@
   // A refresh keeps `current` until the new value arrives, and a failed one leaves it alone,
   // so the card never flickers or blanks.
   function refresh() {
-    if (!document.hidden) nowPlaying?.refresh().catch(() => {});
+    if (nowPlaying && !nowPlaying.loading && !document.hidden) nowPlaying.refresh().catch(() => {});
   }
 
   $effect(() => {
     // Coming back to the page reuses the cached query, so catch up instead of showing an old track.
-    if (untrack(() => nowPlaying?.ready)) refresh();
+    if (untrack(() => nowPlaying?.ready || nowPlaying?.error)) refresh();
     const timer = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(timer);
   });
