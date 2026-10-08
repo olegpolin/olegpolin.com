@@ -16,7 +16,3 @@ My portfolio
 npm i
 npm run dev
 ```
-
-## Environment variables
-
-Declared in `src/env.ts`, read from `.env.local` locally (copy `.env.example`) and from Cloudflare secrets in production (`npx wrangler secret put <NAME>`). All are optional. The Spotify ones are explained in `src/lib/server/spotify.ts`.

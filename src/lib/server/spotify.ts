@@ -11,7 +11,7 @@
        &redirect_uri=http%3A%2F%2F127.0.0.1%3A8888%2Fcallback
        &scope=user-read-currently-playing%20user-read-recently-played
      The browser lands on an unreachable 127.0.0.1 page; copy the `code` from its address bar.
-  3. Within a minute, exchange it (curl, or Invoke-RestMethod on Windows):
+  3. Within a minute, exchange it:
      curl -u "<CLIENT_ID>:<CLIENT_SECRET>" -d grant_type=authorization_code -d code=<CODE>
        -d redirect_uri=http://127.0.0.1:8888/callback https://accounts.spotify.com/api/token
      Keep `refresh_token` from the response; `access_token` expires hourly and is fetched here.
