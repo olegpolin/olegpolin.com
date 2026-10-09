@@ -26,3 +26,9 @@ export function timeAgo(then: number, now = Date.now()): string {
   }
   return 'just now';
 }
+
+/** A track time as Spotify shows it: "0:07", "3:45", "75:00" for an hour and a quarter. */
+export function clock(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}

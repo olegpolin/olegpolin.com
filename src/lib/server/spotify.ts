@@ -36,10 +36,18 @@ export interface NowPlaying {
    * track with no `timestamp`, or one that was playing when Spotify became unreachable.
    */
   playedAt: number | null;
+  /** The track's length in ms. */
+  durationMs: number;
+  /**
+   * How far into the track playback was at `playedAt`, in ms, so the widget can extrapolate the
+   * position without polling. Null for a track from history, and when Spotify omits it.
+   */
+  progressMs: number | null;
 }
 
 interface SpotifyTrack {
   name: string;
+  duration_ms: number;
   artists: { name: string }[];
   album: { images: { url: string; width: number | null }[] };
   external_urls: { spotify?: string };
@@ -133,7 +141,8 @@ function pause(retryAfter: string | null, body: string) {
 function normalise(
   track: SpotifyTrack,
   isPlaying: boolean,
-  playedAt: number | null
+  playedAt: number | null,
+  progressMs: number | null = null
 ): NowPlaying {
   // Album art comes as 640/300/64 px; the widget shows it at 64 px, so 300 is plenty.
   const images = [...track.album.images].sort(
@@ -145,7 +154,9 @@ function normalise(
     artists: track.artists.map((a) => a.name).join(', '),
     image: images[0]?.url ?? null,
     url: track.external_urls.spotify ?? null,
-    playedAt
+    playedAt,
+    durationMs: track.duration_ms,
+    progressMs
   };
 }
 
@@ -153,6 +164,7 @@ function normalise(
 async function fetchNowPlaying(): Promise<NowPlaying | null> {
   const current = await api<{
     timestamp: number;
+    progress_ms: number | null;
     is_playing: boolean;
     currently_playing_type: string;
     item: SpotifyTrack | null;
@@ -163,7 +175,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     // a paused track but could be an hour back for one still playing.
     const now = Date.now();
     const playedAt = current.is_playing ? now : current.timestamp || null;
-    const value = normalise(current.item, current.is_playing, playedAt);
+    const value = normalise(current.item, current.is_playing, playedAt, current.progress_ms);
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
