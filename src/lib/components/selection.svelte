@@ -31,7 +31,7 @@
 >
   <span
     class={cn(
-      'mono absolute -left-px bottom-[calc(100%+9px)] text-label whitespace-nowrap text-select-foreground',
+      'mono absolute -left-px bottom-[calc(100%+9px)] max-w-full truncate text-label text-select-foreground',
       fade
     )}
     aria-hidden="true"

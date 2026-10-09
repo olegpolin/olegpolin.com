@@ -17,7 +17,9 @@
   let menuOpen = $state(false);
 
   const current = (href: string) =>
-    href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
+    href === '/'
+      ? page.url.pathname === '/'
+      : page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
 </script>
 
 <header class="relative flex h-18 items-center justify-between px-5">
