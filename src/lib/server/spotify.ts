@@ -154,17 +154,11 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   }>('/currently-playing');
   // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
+    // `timestamp` is when playback last changed (play, pause, skip), so it is the pause time of
+    // a paused track but could be an hour back for one still playing.
     const now = Date.now();
-    const value = normalise(current.item, current.is_playing, now);
-    if (!current.is_playing) {
-      // A paused track was played until it was paused. `timestamp` is documented as the time
-      // playback last changed, which is that moment, but it may also be the poll time. Once the
-      // track has been seen, the date already held is kept rather than creeping forward each poll.
-      value.playedAt = current.timestamp || now;
-      if (recent?.title === value.title && recent.artists === value.artists) {
-        value.playedAt = Math.min(value.playedAt, recent.playedAt);
-      }
-    }
+    const playedAt = current.is_playing ? now : current.timestamp || now;
+    const value = normalise(current.item, current.is_playing, playedAt);
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
