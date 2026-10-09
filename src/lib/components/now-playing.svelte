@@ -1,7 +1,6 @@
 <!--
   The live Spotify widget on the About page: the track playing right now, else the last one
-  played and how long ago, else an empty or unavailable state. Every state is a 68 px row so
-  nothing shifts.
+  played and how long ago, else an empty state. Every state is a 68 px row so nothing shifts.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -108,10 +107,9 @@
       </a>
     {:else if shown}
       <div class="flex items-center gap-5">{@render card(shown)}</div>
-    {:else if nowPlaying?.error}
-      <!-- Before `ready`: it stays true after an idle answer, even while every refresh fails. -->
-      {@render empty('Spotify is unavailable right now.')}
-    {:else if nowPlaying?.ready}
+    {:else if nowPlaying?.ready || nowPlaying?.error}
+      <!-- A failed query with no track to keep reads like an idle one: visitors have no use for
+           the cause, and the server log has it. -->
       {@render empty('Nothing playing right now.')}
     {:else}
       <div class="flex items-center gap-5" aria-hidden="true">
