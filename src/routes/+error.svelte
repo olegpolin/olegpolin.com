@@ -11,14 +11,15 @@
 
   const notFound = $derived(page.status === 404);
   const title = $derived(notFound ? 'Page not found' : 'Something went wrong');
-  const lede = $derived(
-    notFound
-      ? 'There is nothing at this address. It may have moved, or it never existed.'
-      : (page.error?.message ?? 'An unexpected error occurred. Try again in a moment.')
-  );
+  // Server errors arrive as a terse "Internal Error"; other statuses carry a readable message.
+  const lede = $derived.by(() => {
+    if (notFound) return 'There is nothing at this address. It may have moved, or it never existed.';
+    if (page.status >= 500) return 'Something broke on my end. Try again in a moment.';
+    return page.error?.message ?? 'Something went wrong. Try again in a moment.';
+  });
 </script>
 
-<Seo title="{page.status} {title}" noindex />
+<Seo title="{page.status} {title}" description={lede} noindex />
 
 <section
   class="flex flex-col items-center px-4 pt-24 pb-28 text-center motion-safe:animate-in motion-safe:duration-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-2 md:pt-44 md:pb-52"
