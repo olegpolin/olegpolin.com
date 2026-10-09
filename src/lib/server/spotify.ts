@@ -31,10 +31,9 @@ export interface NowPlaying {
   /** Null for local files, which Spotify has no page for. */
   url: string | null;
   /**
-   * When the track was played, in ms since the epoch. From history this is Spotify's `played_at`.
-   * A track seen playing is being played now; a paused one was played when it was paused. Null
-   * when unknown: a paused track without a `timestamp`, or a track that was playing when Spotify
-   * became unreachable and so may be playing still.
+   * When the track was played, in ms since the epoch: Spotify's `played_at` from history, the poll
+   * time for a track seen playing, the pause time for one seen paused. Null when unknown: a paused
+   * track with no `timestamp`, or one that was playing when Spotify became unreachable.
    */
   playedAt: number | null;
 }
@@ -183,7 +182,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     recentCheckedAt = Date.now(); // an empty history is an answer too
     const item = played?.items[0];
     if (item?.track) {
-      // History lags and omits very short plays, so never move back behind a track seen playing.
+      // History lags and omits very short plays, so never move back behind the track held.
       const playedAt = Date.parse(item.played_at);
       if (playedAt > (recent?.playedAt ?? 0)) recent = normalise(item.track, false, playedAt);
     }
@@ -194,8 +193,8 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 /**
  * What to serve while Spotify is unavailable: the last known track, no longer claimed to be
  * playing, nor to have last played at any time, since it may be playing still. With no track to
- * show it fails as an expected error, which SvelteKit does not log as a crash and which leaves a
- * client showing the unavailable state rather than a stale "nothing playing".
+ * show it fails as an expected error, which SvelteKit does not log as a crash; a client then keeps
+ * the track it has, if any, else shows the unavailable state rather than a stale "nothing playing".
  */
 function fallback(): NowPlaying {
   const value = result?.value;
@@ -206,9 +205,9 @@ function fallback(): NowPlaying {
 /**
  * The track to show, cached for CACHE_MS per isolate. Polls run one at a time and at most once
  * per cache window, whatever their outcome. A failed poll, or a 429 pause, keeps the isolate's
- * last track but stops claiming it is still playing. State lives in isolate memory, so a fresh
- * isolate during a pause spends one probe and then has nothing to serve until the pause ends;
- * a shared store would be the next step if that matters.
+ * last track, if any, but stops claiming it is still playing. State lives in isolate memory, so
+ * a fresh isolate during a pause spends one probe and then has nothing to serve until the pause
+ * ends; a shared store would be the next step if that matters.
  */
 export async function readNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
