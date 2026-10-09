@@ -175,7 +175,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     // a paused track but could be an hour back for one still playing.
     const now = Date.now();
     const playedAt = current.is_playing ? now : current.timestamp || null;
-    const value = normalise(current.item, current.is_playing, playedAt, current.progress_ms);
+    const value = normalise(current.item, current.is_playing, playedAt, current.progress_ms ?? null);
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };

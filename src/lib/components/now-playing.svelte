@@ -1,7 +1,7 @@
 <!--
   The live Spotify widget on the About page: the track playing right now, else the last one
   played and how long ago, else an empty state. Every state is a 68 px row so nothing shifts
-  between them; only a playing track adds a progress line below the row.
+  between them; only a playing track adds a progress line to its text, making that row taller.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
