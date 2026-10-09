@@ -192,15 +192,15 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 }
 
 /**
- * What to serve while Spotify is unavailable: the last known answer, with any track no longer
- * claimed to be playing, nor to have last played at any time, since it may be playing still. With
- * no answer yet it fails as an expected error, which SvelteKit does not log as a crash and which
- * leaves a client showing whatever it already has.
+ * What to serve while Spotify is unavailable: the last known track, no longer claimed to be
+ * playing, nor to have last played at any time, since it may be playing still. With no track to
+ * show it fails as an expected error, which SvelteKit does not log as a crash and which leaves a
+ * client showing the unavailable state rather than a stale "nothing playing".
  */
-function fallback(): NowPlaying | null {
-  if (!result) error(503, 'Spotify is unavailable');
-  const { value } = result;
-  return value?.isPlaying ? { ...value, isPlaying: false, playedAt: null } : value;
+function fallback(): NowPlaying {
+  const value = result?.value;
+  if (!value) error(503, 'Spotify is unavailable');
+  return value.isPlaying ? { ...value, isPlaying: false, playedAt: null } : value;
 }
 
 /**
