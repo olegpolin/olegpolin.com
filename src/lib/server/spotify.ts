@@ -32,9 +32,11 @@ export interface NowPlaying {
   url: string | null;
   /**
    * When the track was played, in ms since the epoch. From history this is Spotify's `played_at`.
-   * A track seen playing is being played now; a paused one was played when it was paused.
+   * A track seen playing is being played now; a paused one was played when it was paused. Null
+   * when unknown: a paused track without a `timestamp`, or a track that was playing when Spotify
+   * became unreachable and so may be playing still.
    */
-  playedAt: number;
+  playedAt: number | null;
 }
 
 interface SpotifyTrack {
@@ -129,7 +131,11 @@ function pause(retryAfter: string | null, body: string) {
   nextPollAt = Math.max(nextPollAt, Date.now() + ms); // never shorten a pause already in force
 }
 
-function normalise(track: SpotifyTrack, isPlaying: boolean, playedAt: number): NowPlaying {
+function normalise(
+  track: SpotifyTrack,
+  isPlaying: boolean,
+  playedAt: number | null
+): NowPlaying {
   // Album art comes as 640/300/64 px; the widget shows it at 64 px, so 300 is plenty.
   const images = [...track.album.images].sort(
     (a, b) => Math.abs((a.width ?? 0) - 300) - Math.abs((b.width ?? 0) - 300)
@@ -157,7 +163,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     // `timestamp` is when playback last changed (play, pause, skip), so it is the pause time of
     // a paused track but could be an hour back for one still playing.
     const now = Date.now();
-    const playedAt = current.is_playing ? now : current.timestamp || now;
+    const playedAt = current.is_playing ? now : current.timestamp || null;
     const value = normalise(current.item, current.is_playing, playedAt);
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
@@ -187,12 +193,14 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
 
 /**
  * What to serve while Spotify is unavailable: the last known answer, with any track no longer
- * claimed to be playing. With no answer yet it fails as an expected error, which SvelteKit does
- * not log as a crash and which leaves a client showing whatever it already has.
+ * claimed to be playing, nor to have last played at any time, since it may be playing still. With
+ * no answer yet it fails as an expected error, which SvelteKit does not log as a crash and which
+ * leaves a client showing whatever it already has.
  */
 function fallback(): NowPlaying | null {
   if (!result) error(503, 'Spotify is unavailable');
-  return result.value && { ...result.value, isPlaying: false };
+  const { value } = result;
+  return value?.isPlaying ? { ...value, isPlaying: false, playedAt: null } : value;
 }
 
 /**

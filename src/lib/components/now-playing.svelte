@@ -22,12 +22,18 @@
   let now = $state(Date.now());
 
   // A refresh keeps `current` until a new value arrives, and a failed one only sets `error`, so
-  // the card never blanks. While refreshes fail, stop claiming the track is still playing.
+  // the card never blanks. While refreshes fail, stop claiming the track is still playing, or
+  // saying when it last played: it may be playing still.
   const shown = $derived(
-    nowPlaying?.current && nowPlaying.error
-      ? { ...nowPlaying.current, isPlaying: false }
+    nowPlaying?.current?.isPlaying && nowPlaying.error
+      ? { ...nowPlaying.current, isPlaying: false, playedAt: null }
       : nowPlaying?.current
   );
+
+  function label(track: NowPlaying) {
+    if (track.isPlaying) return 'now playing';
+    return track.playedAt === null ? 'last played' : `last played ${timeAgo(track.playedAt, now)}`;
+  }
 
   function refresh() {
     now = Date.now();
@@ -78,10 +84,7 @@
     {@render glyph()}
   {/if}
   <div class="min-w-0">
-    {@render eyebrow(
-      track.isPlaying ? 'now playing' : `last played ${timeAgo(track.playedAt, now)}`,
-      track.isPlaying
-    )}
+    {@render eyebrow(label(track), track.isPlaying)}
     <p class="truncate font-medium underline-offset-4 group-hover/track:underline">{track.title}</p>
     <p class="truncate text-muted-foreground">{track.artists}</p>
   </div>

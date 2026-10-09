@@ -1,6 +1,9 @@
-/** Units from largest to smallest, in seconds. A month is the mean Gregorian month. */
+/**
+ * Units from largest to smallest, in seconds. A month is the mean Gregorian month; a year is
+ * 365 days, so that a year's worth of days never floors to 11 months.
+ */
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ['year', 31_557_600],
+  ['year', 31_536_000],
   ['month', 2_629_800],
   ['week', 604_800],
   ['day', 86_400],
