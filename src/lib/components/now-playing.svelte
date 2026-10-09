@@ -1,12 +1,14 @@
 <!--
   The live Spotify widget on the About page: the track playing right now, else the last one
-  played, else an empty or unavailable state. Every state is a 68 px row so nothing shifts.
+  played and how long ago, else an empty or unavailable state. Every state is a 68 px row so
+  nothing shifts.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/env';
   import { Skeleton } from '#lib/components/ui/skeleton/index.ts';
   import { getNowPlaying } from '#lib/spotify.remote.ts';
+  import { timeAgo } from '#lib/time.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
   // Longer than the server's 55 s cache, so each tick gets fresh data. Kept slow because every
@@ -15,16 +17,26 @@
 
   // Browser only, so SSR never starts or waits on a Spotify poll.
   const nowPlaying = browser ? getNowPlaying() : null;
+  // The clock behind "last played 3 minutes ago". Advanced on every tick and on coming back to
+  // the tab, so the label keeps up even while refreshes are skipped or fail.
+  let now = $state(Date.now());
 
   // A refresh keeps `current` until a new value arrives, and a failed one only sets `error`, so
-  // the card never blanks. While refreshes fail, stop claiming the track is still playing.
+  // the card never blanks. While refreshes fail, stop claiming the track is still playing, or
+  // saying when it last played: it may be playing still.
   const shown = $derived(
-    nowPlaying?.current && nowPlaying.error
-      ? { ...nowPlaying.current, isPlaying: false }
+    nowPlaying?.current?.isPlaying && nowPlaying.error
+      ? { ...nowPlaying.current, isPlaying: false, playedAt: null }
       : nowPlaying?.current
   );
 
+  function label(track: NowPlaying) {
+    if (track.isPlaying) return 'now playing';
+    return track.playedAt === null ? 'last played' : `last played ${timeAgo(track.playedAt, now)}`;
+  }
+
   function refresh() {
+    now = Date.now();
     if (nowPlaying && !document.hidden) nowPlaying.refresh().catch(() => {});
   }
 
@@ -40,11 +52,12 @@
 <svelte:document onvisibilitychange={refresh} />
 
 {#snippet eyebrow(text: string, live = false)}
+  <!-- The text gets its own span: an ellipsis never renders on a flex container's bare text. -->
   <p class="mono flex items-center gap-2 text-label text-muted-foreground">
     {#if live}
-      <span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span class="bars shrink-0" aria-hidden="true"><span></span><span></span><span></span></span>
     {/if}
-    {text}
+    <span class="truncate">{text}</span>
   </p>
 {/snippet}
 
@@ -71,7 +84,7 @@
     {@render glyph()}
   {/if}
   <div class="min-w-0">
-    {@render eyebrow(track.isPlaying ? 'now playing' : 'last played', track.isPlaying)}
+    {@render eyebrow(label(track), track.isPlaying)}
     <p class="truncate font-medium underline-offset-4 group-hover/track:underline">{track.title}</p>
     <p class="truncate text-muted-foreground">{track.artists}</p>
   </div>
@@ -95,10 +108,11 @@
       </a>
     {:else if shown}
       <div class="flex items-center gap-5">{@render card(shown)}</div>
+    {:else if nowPlaying?.error}
+      <!-- Before `ready`: it stays true after an idle answer, even while every refresh fails. -->
+      {@render empty('Spotify is unavailable right now.')}
     {:else if nowPlaying?.ready}
       {@render empty('Nothing playing right now.')}
-    {:else if nowPlaying?.error}
-      {@render empty('Spotify is unavailable right now.')}
     {:else}
       <div class="flex items-center gap-5" aria-hidden="true">
         <Skeleton class="size-16 shrink-0" />

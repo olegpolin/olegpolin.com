@@ -30,6 +30,12 @@ export interface NowPlaying {
   image: string | null;
   /** Null for local files, which Spotify has no page for. */
   url: string | null;
+  /**
+   * When the track was played, in ms since the epoch: Spotify's `played_at` from history, the poll
+   * time for a track seen playing, the pause time for one seen paused. Null when unknown: a paused
+   * track with no `timestamp`, or one that was playing when Spotify became unreachable.
+   */
+  playedAt: number | null;
 }
 
 interface SpotifyTrack {
@@ -57,13 +63,14 @@ const MAX_PAUSE_MS = 24 * 60 * 60_000;
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
 /**
- * The last played track, whether history should still confirm it, when history was last asked,
- * and when a track was last seen playing (on Spotify's clock, to compare with `played_at`).
+ * The last played track, whether history should still confirm it, and when history was last
+ * asked. History may only replace the track with one played after its `playedAt`. The clocks
+ * differ by seconds at most, far less than the lag between a play and history listing it, so a
+ * poll's own time compares fine with `played_at`.
  */
 let recent: NowPlaying | null = null;
 let recentUnconfirmed = false;
 let recentCheckedAt = 0;
-let recentSeenAt = 0;
 /** No Spotify calls before this time: one cache window after a poll starts, or a 429's pause. */
 let nextPollAt = 0;
 /** The poll in progress, shared by every request that arrives while it runs. */
@@ -123,7 +130,11 @@ function pause(retryAfter: string | null, body: string) {
   nextPollAt = Math.max(nextPollAt, Date.now() + ms); // never shorten a pause already in force
 }
 
-function normalise(track: SpotifyTrack, isPlaying: boolean): NowPlaying {
+function normalise(
+  track: SpotifyTrack,
+  isPlaying: boolean,
+  playedAt: number | null
+): NowPlaying {
   // Album art comes as 640/300/64 px; the widget shows it at 64 px, so 300 is plenty.
   const images = [...track.album.images].sort(
     (a, b) => Math.abs((a.width ?? 0) - 300) - Math.abs((b.width ?? 0) - 300)
@@ -133,7 +144,8 @@ function normalise(track: SpotifyTrack, isPlaying: boolean): NowPlaying {
     title: track.name,
     artists: track.artists.map((a) => a.name).join(', '),
     image: images[0]?.url ?? null,
-    url: track.external_urls.spotify ?? null
+    url: track.external_urls.spotify ?? null,
+    playedAt
   };
 }
 
@@ -147,12 +159,15 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   }>('/currently-playing');
   // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
-    const value = normalise(current.item, current.is_playing);
+    // `timestamp` is when playback last changed (play, pause, skip), so it is the pause time of
+    // a paused track but could be an hour back for one still playing.
+    const now = Date.now();
+    const playedAt = current.is_playing ? now : current.timestamp || null;
+    const value = normalise(current.item, current.is_playing, playedAt);
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
     recentUnconfirmed = true;
-    recentSeenAt = current.timestamp || 0; // missing means accept whatever history says
     return value;
   }
 
@@ -166,30 +181,33 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     );
     recentCheckedAt = Date.now(); // an empty history is an answer too
     const item = played?.items[0];
-    // History lags and omits very short plays, so never move back behind a track seen playing.
-    if (item?.track && Date.parse(item.played_at) > recentSeenAt) {
-      recent = normalise(item.track, false);
+    if (item?.track) {
+      // History lags and omits very short plays, so never move back behind the track held.
+      const playedAt = Date.parse(item.played_at);
+      if (playedAt > (recent?.playedAt ?? 0)) recent = normalise(item.track, false, playedAt);
     }
   }
   return recent;
 }
 
 /**
- * What to serve while Spotify is unavailable: the last known answer, with any track no longer
- * claimed to be playing. With no answer yet it fails as an expected error, which SvelteKit does
- * not log as a crash and which leaves a client showing whatever it already has.
+ * What to serve while Spotify is unavailable: the last known track, no longer claimed to be
+ * playing, nor to have last played at any time, since it may be playing still. With no track to
+ * show it fails as an expected error, which SvelteKit does not log as a crash; a client then keeps
+ * the track it has, if any, else shows the unavailable state rather than a stale "nothing playing".
  */
-function fallback(): NowPlaying | null {
-  if (!result) error(503, 'Spotify is unavailable');
-  return result.value && { ...result.value, isPlaying: false };
+function fallback(): NowPlaying {
+  const value = result?.value;
+  if (!value) error(503, 'Spotify is unavailable');
+  return value.isPlaying ? { ...value, isPlaying: false, playedAt: null } : value;
 }
 
 /**
  * The track to show, cached for CACHE_MS per isolate. Polls run one at a time and at most once
  * per cache window, whatever their outcome. A failed poll, or a 429 pause, keeps the isolate's
- * last track but stops claiming it is still playing. State lives in isolate memory, so a fresh
- * isolate during a pause spends one probe and then has nothing to serve until the pause ends;
- * a shared store would be the next step if that matters.
+ * last track, if any, but stops claiming it is still playing. State lives in isolate memory, so
+ * a fresh isolate during a pause spends one probe and then has nothing to serve until the pause
+ * ends; a shared store would be the next step if that matters.
  */
 export async function readNowPlaying(): Promise<NowPlaying | null> {
   if (!isConfigured()) return null;
