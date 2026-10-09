@@ -10,9 +10,11 @@
   interface Props {
     title?: string;
     description?: string;
+    /* Keep the page out of search results and skip the canonical link (error pages). */
+    noindex?: boolean;
   }
 
-  let { title, description = site.description }: Props = $props();
+  let { title, description = site.description, noindex = false }: Props = $props();
 
   const fullTitle = $derived(title ? `${title} - ${site.name}` : `${site.name} - ${site.tagline}`);
   const canonicalUrl = $derived(new URL(page.url.pathname, site.url).href);
@@ -22,7 +24,11 @@
 <svelte:head>
   <title>{fullTitle}</title>
   <meta name="description" content={description} />
-  <link rel="canonical" href={canonicalUrl} />
+  {#if noindex}
+    <meta name="robots" content="noindex" />
+  {:else}
+    <link rel="canonical" href={canonicalUrl} />
+  {/if}
   <meta property="og:title" content={fullTitle} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content={canonicalUrl} />
