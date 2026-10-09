@@ -1,13 +1,14 @@
 <!--
   The live Spotify widget on the About page: the track playing right now, else the last one
-  played and how long ago, else an empty state. Every state is a 68 px row so nothing shifts.
+  played and how long ago, else an empty state. Every state is a 68 px row so nothing shifts
+  between them; only a playing track adds a progress line to its text, making that row taller.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/env';
   import { Skeleton } from '#lib/components/ui/skeleton/index.ts';
   import { getNowPlaying } from '#lib/spotify.remote.ts';
-  import { timeAgo } from '#lib/time.ts';
+  import { clock, timeAgo } from '#lib/time.ts';
   import type { NowPlaying } from '#lib/server/spotify.ts';
 
   // Longer than the server's 55 s cache, so each tick gets fresh data. Kept slow because every
@@ -33,6 +34,23 @@
     if (track.isPlaying) return 'now playing';
     return track.playedAt === null ? 'last played' : `last played ${timeAgo(track.playedAt, now)}`;
   }
+
+  // Where a playing track is now, in ms, extrapolated from the poll that measured it; null for
+  // anything not playing. Clamped: the clocks differ, and a track can end before the next poll.
+  function elapsed(track: NowPlaying) {
+    if (!track.isPlaying || track.progressMs === null || track.playedAt === null) return null;
+    if (!track.durationMs) return null;
+    return Math.min(Math.max(0, track.progressMs + now - track.playedAt), track.durationMs);
+  }
+
+  // Tick every second while a track plays, so the progress line moves between refreshes. Keyed
+  // on a boolean, not on `shown`: every refresh is a new object, and must not restart the timer.
+  const playing = $derived(shown?.isPlaying === true);
+  $effect(() => {
+    if (!playing) return;
+    const timer = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(timer);
+  });
 
   function refresh() {
     now = Date.now();
@@ -71,6 +89,7 @@
 {/snippet}
 
 {#snippet card(track: NowPlaying)}
+  {@const played = elapsed(track)}
   {#if track.image}
     <img
       src={track.image}
@@ -82,10 +101,24 @@
   {:else}
     {@render glyph()}
   {/if}
-  <div class="min-w-0">
+  <!-- Fills the row so the progress bar spans it; the text lines truncate inside. -->
+  <div class="min-w-0 flex-1">
     {@render eyebrow(label(track), track.isPlaying)}
     <p class="truncate font-medium underline-offset-4 group-hover/track:underline">{track.title}</p>
     <p class="truncate text-muted-foreground">{track.artists}</p>
+    {#if played !== null}
+      <!-- Hidden from assistive tech: it changes every second, which would rename the link around it. -->
+      <div class="mono flex items-center gap-2 text-label text-muted-foreground" aria-hidden="true">
+        <span>{clock(played)}</span>
+        <span class="h-0.5 flex-1 bg-secondary">
+          <span
+            class="block h-full origin-left bg-muted-foreground transition-transform duration-1000 ease-linear motion-reduce:transition-none"
+            style:transform="scaleX({played / track.durationMs})"
+          ></span>
+        </span>
+        <span>{clock(track.durationMs)}</span>
+      </div>
+    {/if}
   </div>
 {/snippet}
 
