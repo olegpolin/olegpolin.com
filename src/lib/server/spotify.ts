@@ -62,15 +62,14 @@ const MAX_PAUSE_MS = 24 * 60 * 60_000;
 let token: { value: string; expiresAt: number } | null = null;
 let result: { value: NowPlaying | null; at: number } | null = null;
 /**
- * The last played track, whether history should still confirm it, when history was last asked,
- * and when the track in the player was last played (its `playedAt`). History may only replace
- * it with a track played after that. The clocks differ by seconds at most, far less than the lag
- * between a play and history listing it, so a poll's own time compares fine with `played_at`.
+ * The last played track, whether history should still confirm it, and when history was last
+ * asked. History may only replace the track with one played after its `playedAt`. The clocks
+ * differ by seconds at most, far less than the lag between a play and history listing it, so a
+ * poll's own time compares fine with `played_at`.
  */
 let recent: NowPlaying | null = null;
 let recentUnconfirmed = false;
 let recentCheckedAt = 0;
-let recentSeenAt = 0;
 /** No Spotify calls before this time: one cache window after a poll starts, or a 429's pause. */
 let nextPollAt = 0;
 /** The poll in progress, shared by every request that arrives while it runs. */
@@ -155,16 +154,21 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
   }>('/currently-playing');
   // Ads and podcasts have no track item.
   if (current?.currently_playing_type === 'track' && current.item) {
-    // `timestamp` is when playback last changed (play, pause, skip), so it is the pause time of
-    // a paused track but could be an hour back for one still playing.
     const now = Date.now();
-    const playedAt = current.is_playing ? now : current.timestamp || now;
-    const value = normalise(current.item, current.is_playing, playedAt);
+    const value = normalise(current.item, current.is_playing, now);
+    if (!current.is_playing) {
+      // A paused track was played until it was paused. `timestamp` is documented as the time
+      // playback last changed, which is that moment, but it may also be the poll time. Once the
+      // track has been seen, the date already held is kept rather than creeping forward each poll.
+      value.playedAt = current.timestamp || now;
+      if (recent?.title === value.title && recent.artists === value.artists) {
+        value.playedAt = Math.min(value.playedAt, recent.playedAt);
+      }
+    }
     // Remember it as the last played. Once playback stops, history is asked once more in case a
     // shorter track came and went between polls.
     recent = { ...value, isPlaying: false };
     recentUnconfirmed = true;
-    recentSeenAt = playedAt;
     return value;
   }
 
@@ -181,7 +185,7 @@ async function fetchNowPlaying(): Promise<NowPlaying | null> {
     if (item?.track) {
       // History lags and omits very short plays, so never move back behind a track seen playing.
       const playedAt = Date.parse(item.played_at);
-      if (playedAt > recentSeenAt) recent = normalise(item.track, false, playedAt);
+      if (playedAt > (recent?.playedAt ?? 0)) recent = normalise(item.track, false, playedAt);
     }
   }
   return recent;
