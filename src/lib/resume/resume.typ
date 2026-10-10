@@ -67,13 +67,13 @@
   [University of Massachusetts Amherst],
   [Amherst, MA],
   subtitle: [B.S. in Computer Science, completed in 2.5 years],
-  right2: [Dec 2026],
+  right2: [Jan 2027],
 )
 #block(above: 0pt, below: 3pt)[
   #grid(
     columns: (1fr, auto),
     text(style: "italic")[M.S. in Computer Science (4+1 program)],
-    text(style: "italic")[Expected Dec 2027],
+    text(style: "italic")[Expected Jan 2028],
   )
 ]
 
