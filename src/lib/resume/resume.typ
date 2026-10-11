@@ -28,7 +28,7 @@
     rows.push(text(style: "italic", if subtitle == none { [] } else { subtitle }))
     rows.push(text(style: "italic", if right2 == none { [] } else { right2 }))
   }
-  block(above: 8pt, below: 3pt, grid(columns: (1fr, auto), row-gutter: 3pt, ..rows))
+  block(above: 8pt, below: 3pt, grid(columns: (1fr, auto), align: (left, right), row-gutter: 3pt, ..rows))
 }
 
 #let items(..b) = list(
