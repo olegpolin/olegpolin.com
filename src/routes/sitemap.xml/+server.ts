@@ -1,27 +1,23 @@
+import { routes } from '$app/manifest';
+import { resolve } from '$app/paths';
 import { site } from '#lib/config/site.ts';
 
 // Generated once at build time and served as a static file, no worker invocation.
 export const prerender = true;
 
-// Every +page.svelte under src/routes is a public page. Endpoints such as the
-// /portfolio and /resume redirects have no +page.svelte, so they are left out.
-const paths = Object.keys(import.meta.glob('/src/routes/**/+page.svelte'))
-  .map((file) => {
-    const path =
-      file
-        .slice('/src/routes'.length)
-        // Strip the file name, including layout resets like +page@.svelte.
-        .replace(/\/\+page(@[^/]*)?\.svelte$/, '')
-        // Route groups like /(marketing) do not appear in URLs.
-        .replace(/\/\([^/]+\)/g, '') || '/';
-
-    // Dynamic routes cannot be listed from the file system; fail the build
+// Every route with a +page is a public page. Endpoint-only routes such as the
+// /portfolio and /resume redirects (and this file) are excluded.
+const paths = routes
+  .filter((route) => route.page)
+  .map((route) => {
+    // Dynamic routes cannot be listed from the route table; fail the build
     // instead of silently shipping an incomplete sitemap.
-    if (path.includes('[')) {
-      throw new Error(`sitemap.xml: list the URLs for dynamic route ${file} explicitly`);
+    if (route.id.includes('[')) {
+      throw new Error(`sitemap.xml: list the URLs for dynamic route ${route.id} explicitly`);
     }
 
-    return path;
+    // resolve() turns a route id into a pathname, dropping route groups like (marketing).
+    return resolve(route.id);
   })
   .sort();
 
