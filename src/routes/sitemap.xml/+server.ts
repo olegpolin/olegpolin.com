@@ -11,12 +11,13 @@ const extraPaths: string[] = [];
 
 // Every route with a +page is a public page. Endpoint-only routes such as the
 // /portfolio and /resume redirects (and this file) are excluded.
-const pageIds = routes.filter((route) => route.page).map((route) => route.id);
+const pageIds = routes.flatMap((route) => (route.page ? [route.id] : []));
 
 // Dynamic routes cannot be listed from the route table; fail the build instead
 // of silently shipping an incomplete sitemap.
-const isStatic = (id: string): id is StaticPageId => !id.includes('[');
-type StaticPageId = Exclude<(typeof pageIds)[number], `${string}[${string}`>;
+type PageId = (typeof pageIds)[number];
+type StaticPageId = Exclude<PageId, `${string}[${string}`>;
+const isStatic = (id: PageId): id is StaticPageId => !id.includes('[');
 
 const dynamic = pageIds.filter((id) => !isStatic(id));
 if (dynamic.length > 0) {
